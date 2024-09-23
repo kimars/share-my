@@ -1,0 +1,108 @@
+var players = {};
+var fishTypes = [
+    {name: "멸치", price: 10, grade: "일반", chance: 30},
+    {name: "고등어", price: 50, grade: "일반", chance: 25},
+    {name: "꽁치", price: 30, grade: "일반", chance: 20},
+    {name: "참치", price: 100, grade: "희귀", chance: 10},
+    {name: "연어", price: 150, grade: "희귀", chance: 8},
+    {name: "상어", price: 500, grade: "희귀", chance: 5},
+    {name: "돔", price: 200, grade: "희귀", chance: 7},
+    {name: "고래", price: 1000, grade: "전설", chance: 3},
+    {name: "금붕어", price: 2000, grade: "전설", chance: 1},
+    {name: "용왕", price: 5000, grade: "신화", chance: 0.5}
+];
+var rods = [
+    {name: "기본 낚싯대", price: 0, multiplier: 1},
+    {name: "중급 낚싯대", price: 1000, multiplier: 1.2},
+    {name: "고급 낚싯대", price: 5000, multiplier: 1.5},
+    {name: "프로 낚싯대", price: 10000, multiplier: 1.8},
+    {name: "전설의 낚싯대", price: 20000, multiplier: 2},
+    {name: "신의 낚싯대", price: 50000, multiplier: 2.5}
+];
+
+function catchFish(rodMultiplier) {
+    var fishes = [];
+    var catchCount = Math.random() < 0.2 ? 2 : 1;  // 20% 확률로 2마리 낚기
+    
+    for (var i = 0; i < catchCount; i++) {
+        var random = Math.random() * 100;
+        var cumulativeChance = 0;
+        for (var j = 0; j < fishTypes.length; j++) {
+            cumulativeChance += fishTypes[j].chance * rodMultiplier;
+            if (random <= cumulativeChance) {
+                var fish = Object.assign({}, fishTypes[j]);
+                
+                // 10% 확률로 2배, 5% 확률로 3배, 1% 확률로 5배의 가격을 가진 물고기 생성
+                var priceMultiplier = 1;
+                var luckyRandom = Math.random() * 100;
+                if (luckyRandom < 1) {
+                    priceMultiplier = 5;
+                    fish.grade = "행운의 " + fish.grade;
+                } else if (luckyRandom < 5) {
+                    priceMultiplier = 3;
+                    fish.grade = "행운의 " + fish.grade;
+                } else if (luckyRandom < 15) {
+                    priceMultiplier = 2;
+                    fish.grade = "행운의 " + fish.grade;
+                }
+                
+                fish.price *= priceMultiplier;
+                fishes.push(fish);
+                break;
+            }
+        }
+        if (fishes.length <= i) {
+            fishes.push(fishTypes[0]);  // 기본값으로 멸치 추가
+        }
+    }
+    return fishes;
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg == "!낚시시작") {
+        players[sender] = {
+            fish: 0,
+            lastFishing: 0,
+            money: 1000,
+            rod: 0
+        };
+        replier.reply(sender + "님, 낚시를 시작합니다! 초기 자금 1000원이 지급됩니다.");
+    }
+    
+    else if (msg == "!낚시") {
+        if (!players[sender]) {
+            replier.reply(sender + "님, 먼저 '!낚시시작'으로 게임을 시작해주세요.");
+            return;
+        }
+        
+        var now = Date.now();
+        if (now - players[sender].lastFishing < 60000) {
+            replier.reply(sender + "님, 낚시는 1분에 한 번만 가능합니다.");
+            return;
+        }
+        
+        players[sender].lastFishing = now;
+        var rodMultiplier = rods[players[sender].rod].multiplier;
+        var caughtFishes = catchFish(rodMultiplier);
+        var totalPrice = 0;
+        var fishInfo = "";
+        
+        for (var i = 0; i < caughtFishes.length; i++) {
+            players[sender].fish++;
+            totalPrice += caughtFishes[i].price;
+            fishInfo += caughtFishes[i].grade + " 등급의 " + caughtFishes[i].name + " (가격: " + caughtFishes[i].price + "원)\n";
+        }
+        
+        players[sender].money += totalPrice;
+        
+        var replyMsg = sender + "님이 " + caughtFishes.length + "마리를 낚았습니다!\n\n" +
+                       fishInfo + "\n" +
+                       "총 가격: " + totalPrice + "원\n" +
+                       "현재 " + players[sender].fish + "마리를 잡았습니다.\n" +
+                       "현재 자금: " + players[sender].money + "원";
+        
+        replier.reply(replyMsg);
+    }
+    
+    // 나머지 명령어 (!낚시현황, !상점, !구매)는 이전과 동일하게 유지
+}
