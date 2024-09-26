@@ -1,0 +1,278 @@
+const scriptName = "도박";
+
+let players = {};
+let rankings = [];
+
+const DAILY_BONUS = 100;
+const POVERTY_THRESHOLD = 100;
+const POVERTY_SUPPORT = 1000;
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    let commands = msg.split(" ");
+    
+    if (!players[sender]) {
+        players[sender] = { balance: 1000 };
+    }
+
+    switch(commands[0]) {
+        case "!슬롯":
+            playSlot(commands, sender, replier);
+            break;
+        case "!블랙잭":
+            playBlackjack(commands, sender, replier);
+            break;
+        case "!룰렛":
+            playRoulette(commands, sender, replier);
+            break;
+        case "!잔액":
+            checkBalance(sender, replier);
+            break;
+        case "!랭킹":
+            showRankings(replier);
+            break;
+        case "!도박도움말":
+            showHelp(replier);
+            break;
+      case "!일일보너스":
+            claimDailyBonus(sender, replier);
+            break;
+        case "!지원금":
+            claimPovertySupport(sender, replier);
+            break;
+    }
+}
+
+function playSlot(commands, sender, replier) {
+    if (commands.length !== 2) {
+        replier.reply("사용법: !슬롯 [베팅금액]");
+        return;
+    }
+    
+    let bet = parseInt(commands[1]);
+    
+    if (isNaN(bet) || bet <= 0 || players[sender].balance < bet) {
+        replier.reply("올바른 베팅 금액을 입력해주세요. 현재 잔액: " + players[sender].balance);
+        return;
+    }
+    
+    let symbols = ["🍒", "🍋", "🍊", "🍇", "🔔", "💎"];
+    let result = [
+        symbols[Math.floor(Math.random() * symbols.length)],
+        symbols[Math.floor(Math.random() * symbols.length)],
+        symbols[Math.floor(Math.random() * symbols.length)]
+    ];
+    
+    let message = "[ " + result.join(" | ") + " ]\n";
+    
+    if (result[0] === result[1] && result[1] === result[2]) {
+        let winnings = bet * getMultiplier(result[0]);
+        players[sender].balance += winnings - bet;
+        message += "대박! " + winnings + "을 획득했습니다!";
+    } else if (result[0] === result[1] || result[1] === result[2]) {
+        let winnings = Math.floor(bet * 1.5);
+        players[sender].balance += winnings - bet;
+        message += "소소한 승리! " + winnings + "을 획득했습니다.";
+    } else {
+        players[sender].balance -= bet;
+        message += "아쉽네요. 다음 기회에!";
+    }
+    
+    message += "\n현재 잔액: " + players[sender].balance;
+    replier.reply(message);
+    
+    updateRankings();
+}
+
+function getMultiplier(symbol) {
+    switch(symbol) {
+        case "🍒": return 2;
+        case "🍋": return 3;
+        case "🍊": return 4;
+        case "🍇": return 5;
+        case "🔔": return 10;
+        case "💎": return 20;
+        default: return 1;
+    }
+}
+
+function playBlackjack(commands, sender, replier) {
+    if (commands.length !== 2) {
+        replier.reply("사용법: !블랙잭 [베팅금액]");
+        return;
+    }
+    
+    let bet = parseInt(commands[1]);
+    
+    if (isNaN(bet) || bet <= 0 || players[sender].balance < bet) {
+        replier.reply("올바른 베팅 금액을 입력해주세요. 현재 잔액: " + players[sender].balance);
+        return;
+    }
+    
+    let deck = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    let playerHand = [deck[Math.floor(Math.random() * deck.length)], deck[Math.floor(Math.random() * deck.length)]];
+    let dealerHand = [deck[Math.floor(Math.random() * deck.length)], deck[Math.floor(Math.random() * deck.length)]];
+    
+    let playerScore = calculateScore(playerHand);
+    let dealerScore = calculateScore(dealerHand);
+    
+    let message = "당신의 패: " + playerHand.join(", ") + " (점수: " + playerScore + ")\n";
+    message += "딜러의 패: " + dealerHand[0] + ", ?\n";
+    
+    if (playerScore === 21) {
+        players[sender].balance += Math.floor(bet * 1.5);
+        message += "블랙잭! 당신이 이겼습니다. +" + Math.floor(bet * 1.5);
+    } else if (dealerScore === 21) {
+        players[sender].balance -= bet;
+        message += "딜러 블랙잭. 당신이 졌습니다. -" + bet;
+    } else {
+        while (playerScore < 17) {
+            playerHand.push(deck[Math.floor(Math.random() * deck.length)]);
+            playerScore = calculateScore(playerHand);
+        }
+        
+        while (dealerScore < 17) {
+            dealerHand.push(deck[Math.floor(Math.random() * deck.length)]);
+            dealerScore = calculateScore(dealerHand);
+        }
+        
+        message += "최종 결과:\n";
+        message += "당신의 패: " + playerHand.join(", ") + " (점수: " + playerScore + ")\n";
+        message += "딜러의 패: " + dealerHand.join(", ") + " (점수: " + dealerScore + ")\n";
+        
+        if (playerScore > 21) {
+            players[sender].balance -= bet;
+            message += "버스트! 당신이 졌습니다. -" + bet;
+        } else if (dealerScore > 21 || playerScore > dealerScore) {
+            players[sender].balance += bet;
+            message += "당신이 이겼습니다! +" + bet;
+        } else if (playerScore < dealerScore) {
+            players[sender].balance -= bet;
+            message += "당신이 졌습니다. -" + bet;
+        } else {
+            message += "무승부입니다.";
+        }
+    }
+    
+    message += "\n현재 잔액: " + players[sender].balance;
+    replier.reply(message);
+    
+    updateRankings();
+}
+
+function calculateScore(hand) {
+    let score = 0;
+    let aceCount = 0;
+    for (let card of hand) {
+        if (card === 'A') {
+            aceCount++;
+            score += 11;
+        } else if (['J', 'Q', 'K'].includes(card)) {
+            score += 10;
+        } else {
+            score += parseInt(card);
+        }
+    }
+    while (score > 21 && aceCount > 0) {
+        score -= 10;
+        aceCount--;
+    }
+    return score;
+}
+
+function playRoulette(commands, sender, replier) {
+    if (commands.length !== 3) {
+        replier.reply("사용법: !룰렛 [베팅유형] [베팅금액]\n베팅유형: 빨강, 검정, 홀수, 짝수, 1-18, 19-36");
+        return;
+    }
+    
+    let betType = commands[1];
+    let bet = parseInt(commands[2]);
+    
+    if (isNaN(bet) || bet <= 0 || players[sender].balance < bet) {
+        replier.reply("올바른 베팅 금액을 입력해주세요. 현재 잔액: " + players[sender].balance);
+        return;
+    }
+    
+    let result = Math.floor(Math.random() * 37);
+    let isRed = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(result);
+    let isOdd = result % 2 === 1;
+    let isLow = result >= 1 && result <= 18;
+    
+    let message = "결과: " + result + " (" + (isRed ? "빨강" : "검정") + ", " + (isOdd ? "홀수" : "짝수") + ", " + (isLow ? "1-18" : "19-36") + ")\n";
+    
+    let won = false;
+    if ((betType === "빨강" && isRed) || 
+        (betType === "검정" && !isRed && result !== 0) ||
+        (betType === "홀수" && isOdd) ||
+        (betType === "짝수" && !isOdd && result !== 0) ||
+        (betType === "1-18" && isLow) ||
+        (betType === "19-36" && !isLow && result !== 0)) {
+        won = true;
+    }
+    
+    if (won) {
+        players[sender].balance += bet;
+        message += "축하합니다! 당신이 이겼습니다. +" + bet;
+    } else {
+        players[sender].balance -= bet;
+        message += "아쉽네요. 당신이 졌습니다. -" + bet;
+    }
+    
+    message += "\n현재 잔액: " + players[sender].balance;
+    replier.reply(message);
+    
+    updateRankings();
+}
+
+function checkBalance(sender, replier) {
+    replier.reply(sender + "님의 현재 잔액: " + players[sender].balance);
+}
+
+function updateRankings() {
+    rankings = Object.entries(players)
+        .sort((a, b) => b[1].balance - a[1].balance)
+        .slice(0, 5);
+}
+
+function claimDailyBonus(sender, replier) {
+    if (!players[sender].lastBonusDate || isNewDay(players[sender].lastBonusDate)) {
+        players[sender].balance += DAILY_BONUS;
+        players[sender].lastBonusDate = new Date().toISOString();
+        replier.reply(sender + "님, 일일 보너스 " + DAILY_BONUS + "를 받았습니다. 현재 잔액: " + players[sender].balance);
+        saveData(); // 보너스 지급 후 저장
+    } else {
+        replier.reply(sender + "님, 일일 보너스는 하루에 한 번만 받을 수 있습니다.");
+    }
+}
+
+function claimPovertySupport(sender, replier) {
+    if (players[sender].balance <= POVERTY_THRESHOLD) {
+        players[sender].balance += POVERTY_SUPPORT;
+        replier.reply(sender + "님, 지원금 " + POVERTY_SUPPORT + "를 받았습니다. 현재 잔액: " + players[sender].balance);
+        saveData(); // 지원금 지급 후 저장
+    } else {
+        replier.reply(sender + "님, 지원금은 잔액이 " + POVERTY_THRESHOLD + " 이하일 때만 받을 수 있습니다.");
+    }
+}
+
+function showRankings(replier) {
+    let message = "=== 상위 5명 랭킹 ===\n";
+    rankings.forEach((player, index) => {
+        message += (index + 1) + ". " + player[0] + ": " + player[1].balance + "\n";
+    });
+    replier.reply(message);
+}
+// 새로 추가된 포커와 바카라 함수들은 그대로 유지
+
+function showHelp(replier) {
+    let helpMessage = "=== 종합 카지노 게임 도움말 ===\n" +
+        "!슬롯 [베팅금액]: 슬롯 머신 플레이\n" +
+        "!블랙잭 [베팅금액]: 블랙잭 플레이\n" +
+        "!룰렛 [베팅유형] [베팅금액]: 룰렛 플레이\n" +
+        "!잔액: 현재 잔액 확인\n" +
+        "!랭킹: 상위 5명 랭킹 확인\n" +
+        "!도박도움말: 이 도움말 보기\n" +
+        "!지원금 : 지원금을 받습니다.\n" +
+        "!일일보너스: 일일보너스 돈을 받습니다.";
+    replier.reply(helpMessage);
+}
