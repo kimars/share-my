@@ -1,0 +1,214 @@
+var fishTypes = [
+  { name: "멸치", grade: 1, value: 10, exp: 1, rarity: "common", season: "all" },
+  { name: "고등어", grade: 2, value: 20, exp: 2, rarity: "common", season: "summer" },
+  { name: "참치", grade: 3, value: 30, exp: 3, rarity: "uncommon", season: "all" },
+  { name: "연어", grade: 4, value: 40, exp: 4, rarity: "uncommon", season: "fall" },
+  { name: "방어", grade: 4, value: 45, exp: 4, rarity: "uncommon", season: "winter" },
+  { name: "돌돔", grade: 5, value: 50, exp: 5, rarity: "rare", season: "summer" },
+  { name: "광어", grade: 5, value: 55, exp: 5, rarity: "rare", season: "spring" },
+  { name: "농어", grade: 6, value: 60, exp: 6, rarity: "rare", season: "fall" },
+  { name: "복어", grade: 6, value: 65, exp: 6, rarity: "rare", season: "winter" },
+  { name: "대구", grade: 7, value: 70, exp: 7, rarity: "epic", season: "winter" },
+  { name: "참돔", grade: 7, value: 75, exp: 7, rarity: "epic", season: "spring" },
+  { name: "황새치", grade: 8, value: 80, exp: 8, rarity: "epic", season: "summer" },
+  { name: "상어", grade: 8, value: 85, exp: 8, rarity: "epic", season: "all" },
+  { name: "청새치", grade: 9, value: 90, exp: 9, rarity: "legendary", season: "summer" },
+  { name: "돌고래", grade: 9, value: 95, exp: 9, rarity: "legendary", season: "spring" },
+  { name: "고래", grade: 10, value: 100, exp: 10, rarity: "legendary", season: "winter" },
+  { name: "크라켄", grade: 10, value: 150, exp: 15, rarity: "mythic", season: "all" }
+];
+
+var seasons = ["spring", "summer", "fall", "winter"];
+var currentSeason = seasons[Math.floor(Math.random() * seasons.length)];
+
+var items = [
+  { name: "낚싯대 강화", price: 100, effect: "낚시 성공률 증가" },
+  { name: "미끼 강화", price: 150, effect: "희귀 물고기 확률 증가" },
+  { name: "행운의 부적", price: 200, effect: "코인 획득량 증가" }
+];
+
+var users = {};
+var cooldowns = {};
+var dailyQuests = {};
+
+function getUser(sender) {
+  if (!users[sender]) {
+    users[sender] = { coins: 0, exp: 0, level: 1, items: [], fishCaught: {} };
+  }
+  return users[sender];
+}
+
+function calculateLevel(exp) {
+  return Math.floor(Math.sqrt(exp) / 5) + 1;
+}
+
+function changeSeason() {
+  currentSeason = seasons[(seasons.indexOf(currentSeason) + 1) % seasons.length];
+  return "계절이 바뀌었습니다. 현재 계절: " + currentSeason;
+}
+
+function fishing(sender) {
+  var user = getUser(sender);
+  var levelBonus = user.level * 0.05;
+  var itemBonus = user.items.indexOf("미끼 강화") !== -1 ? 0.1 : 0;
+  var seasonalBonus = 0.1;
+  var rarity = Math.random() + levelBonus + itemBonus + seasonalBonus;
+  
+  var fish;
+  if (rarity > 0.99) {
+    fish = fishTypes.filter(function(f) { return f.rarity === "mythic"; })[0];
+  } else if (rarity > 0.95) {
+    var legendaryFish = fishTypes.filter(function(f) { return f.rarity === "legendary" && (f.season === currentSeason || f.season === "all"); });
+    fish = legendaryFish[Math.floor(Math.random() * legendaryFish.length)];
+  } else if (rarity > 0.85) {
+    var epicFish = fishTypes.filter(function(f) { return f.rarity === "epic" && (f.season === currentSeason || f.season === "all"); });
+    fish = epicFish[Math.floor(Math.random() * epicFish.length)];
+  } else if (rarity > 0.7) {
+    var rareFish = fishTypes.filter(function(f) { return f.rarity === "rare" && (f.season === currentSeason || f.season === "all"); });
+    fish = rareFish[Math.floor(Math.random() * rareFish.length)];
+  } else if (rarity > 0.4) {
+    var uncommonFish = fishTypes.filter(function(f) { return f.rarity === "uncommon" && (f.season === currentSeason || f.season === "all"); });
+    fish = uncommonFish[Math.floor(Math.random() * uncommonFish.length)];
+  } else {
+    var commonFish = fishTypes.filter(function(f) { return f.rarity === "common" && (f.season === currentSeason || f.season === "all"); });
+    fish = commonFish[Math.floor(Math.random() * commonFish.length)];
+  }
+
+  var coinBonus = user.items.indexOf("행운의 부적") !== -1 ? 1.5 : 1;
+  var coins = Math.floor((fish.value + Math.random() * 11 + user.level) * coinBonus);
+  user.coins += coins;
+  user.exp += fish.exp;
+  
+  var newLevel = calculateLevel(user.exp);
+  var levelUp = newLevel > user.level;
+  user.level = newLevel;
+
+  if (!user.fishCaught[fish.name]) {
+    user.fishCaught[fish.name] = 0;
+  }
+  user.fishCaught[fish.name]++;
+
+  return { fish: fish, coins: coins, levelUp: levelUp, newLevel: newLevel };
+}
+
+function checkCooldown(sender) {
+  var now = Date.now();
+  if (cooldowns[sender] && now - cooldowns[sender] < 60000) { // 1분 쿨타임
+    return Math.ceil((60000 - (now - cooldowns[sender])) / 1000);
+  }
+  cooldowns[sender] = now;
+  return 0;
+}
+
+function generateDailyQuest() {
+  var questTypes = ["catch", "earn"];
+  var type = questTypes[Math.floor(Math.random() * questTypes.length)];
+  var target = type === "catch" ? fishTypes[Math.floor(Math.random() * fishTypes.length)].name : Math.floor(Math.random() * 500) + 100;
+  var amount = type === "catch" ? Math.floor(Math.random() * 5) + 1 : 1;
+  return { type: type, target: target, amount: amount, progress: 0 };
+}
+
+function checkDailyQuest(sender, fish, coins) {
+  var quest = dailyQuests[sender];
+  if (!quest) return;
+  
+  if (quest.type === "catch" && fish.name === quest.target) {
+    quest.progress++;
+  } else if (quest.type === "earn") {
+    quest.progress += coins;
+  }
+  
+  if (quest.progress >= quest.amount) {
+    var reward = Math.floor(Math.random() * 100) + 50;
+    users[sender].coins += reward;
+    delete dailyQuests[sender];
+    return "일일 퀘스트 완료! " + reward + " 코인을 받았습니다.";
+  }
+  return null;
+}
+
+function getRanking() {
+  var sortedUsers = Object.keys(users).map(function(key) {
+    return {name: key, exp: users[key].exp, level: users[key].level};
+  }).sort(function(a, b) {
+    return b.exp - a.exp;
+  }).slice(0, 5);
+
+  return sortedUsers.map(function(user, index) {
+    return (index + 1) + ". " + user.name + ": Lv." + user.level + " (" + user.exp + "exp)";
+  }).join("\n");
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+  var user = getUser(sender);
+
+  if (msg === "!낚시") {
+    var cooldown = checkCooldown(sender);
+    if (cooldown > 0) {
+      replier.reply("낚시 쿨타임이 " + cooldown + "초 남았습니다.");
+      return;
+    }
+    
+    var result = fishing(sender);
+    var response = [
+      sender + "님의 낚시 결과:",
+      "물고기: [" + result.fish.grade + "등급] " + result.fish.name + " (" + result.fish.rarity + ")",
+      "획득 코인: " + result.coins,
+      "현재 코인: " + user.coins,
+      "경험치: +" + result.fish.exp + " (총 " + user.exp + ")",
+      "현재 계절: " + currentSeason
+    ];
+    
+    if (result.levelUp) {
+      response.push("레벨 업! 현재 레벨: " + result.newLevel);
+      if (result.newLevel % 5 === 0) {
+        var bonus = result.newLevel * 10;
+        user.coins += bonus;
+        response.push("특별 보너스! " + bonus + " 코인을 획득했습니다!");
+      }
+    }
+    
+    var questResult = checkDailyQuest(sender, result.fish, result.coins);
+    if (questResult) {
+      response.push(questResult);
+    }
+    
+    replier.reply(response.join("\n"));
+  } else if (msg === "!상점") {
+    var shopList = items.map(function(item) {
+      return item.name + " (" + item.price + "코인): " + item.effect;
+    }).join("\n");
+    replier.reply("상점 목록:\n" + shopList + "\n\n구매 방법: !구매 [아이템명]");
+  } else if (msg.indexOf("!구매 ") === 0) {
+    var itemName = msg.slice(4);
+    var item = items.filter(function(i) { return i.name === itemName; })[0];
+    if (item) {
+      if (user.coins >= item.price) {
+        user.coins -= item.price;
+        user.items.push(item.name);
+        replier.reply(item.name + " 구매 완료! 남은 코인: " + user.coins);
+      } else {
+        replier.reply("코인이 부족합니다.");
+      }
+    } else {
+      replier.reply("해당 아이템이 없습니다.");
+    }
+  } else if (msg === "!내정보") {
+    replier.reply(sender + "님의 정보:\n레벨: " + user.level + "\n경험치: " + user.exp + "\n코인: " + user.coins + "\n아이템: " + user.items.join(", "));
+  } else if (msg === "!랭킹") {
+    replier.reply("낚시왕 랭킹:\n" + getRanking());
+  } else if (msg === "!계절변경") {
+    replier.reply(changeSeason());
+  } else if (msg === "!도감") {
+    var log = Object.keys(user.fishCaught).map(function(fish) {
+      return fish + ": " + user.fishCaught[fish] + "마리";
+    }).join("\n");
+    replier.reply(sender + "님의 물고기 도감:\n" + log);
+  } else if (msg === "!퀘스트") {
+    if (!dailyQuests[sender]) {
+      dailyQuests[sender] = generateDailyQuest();
+    }
+    var quest = dailyQuests[sender];
+    replier.reply("일일 퀘스트: " + (quest.type === "catch" ? quest.target + " " + quest.amount + "마리 잡기" : quest.target + " 코인 벌기") + "\n진행도: " + quest.progress + "/" + quest.amount);
+  }
+}
