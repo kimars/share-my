@@ -1,0 +1,73 @@
+const originalAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+let secretMessage = '';
+let shift = 0;
+let encryptedMessage = '';
+
+const messages = [
+    "HELLO",
+    "GAME",
+    "FUN",
+    "PLAY",
+    "WIN",
+    "GOOD LUCK",
+    "TRY AGAIN",
+    "WELL DONE",
+    "GREAT JOB",
+    "KEEP GOING",
+    "NICE TRY",
+    "AWESOME",
+    "BRILLIANT",
+    "SMART MOVE",
+    "COOL",
+    "AMAZING",
+    "YOU CAN DO IT",
+    "NEVER GIVE UP",
+    "STAY POSITIVE",
+    "BELIEVE IN YOURSELF"
+];
+
+function encryptMessage(message, shiftAmount) {
+    return message.split('').map(char => {
+        if (char === ' ') return ' ';
+        const index = originalAlphabet.indexOf(char.toUpperCase());
+        if (index === -1) return char;
+        return originalAlphabet[(index + shiftAmount) % 26];
+    }).join('');
+}
+
+function decryptMessage(message, shiftAmount) {
+    return message.split('').map(char => {
+        if (char === ' ') return ' ';
+        const index = originalAlphabet.indexOf(char.toUpperCase());
+        if (index === -1) return char;
+        return originalAlphabet[(index - shiftAmount + 26) % 26];
+    }).join('');
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg === "암호게임 시작") {
+        secretMessage = messages[Math.floor(Math.random() * messages.length)];
+        shift = Math.floor(Math.random() * 25) + 1;
+        encryptedMessage = encryptMessage(secretMessage, shift);
+        replier.reply("암호를 해독하세요: " + encryptedMessage + 
+                      "\n(힌트: 알파벳이 " + shift + "칸 이동했어요)" +
+                      "\n포기하려면 '포기'라고 입력하세요.");
+    } else if (secretMessage) {
+        if (decryptMessage(msg.toUpperCase(), shift) === secretMessage) {
+            replier.reply("축하합니다! 암호를 해독했습니다. 정답은 '" + secretMessage + "' 였습니다.");
+            secretMessage = '';
+            shift = 0;
+            encryptedMessage = '';
+        } else if (msg === "포기") {
+            replier.reply("아쉽네요. 정답은 '" + secretMessage + "' 였습니다. 다음에 다시 도전해보세요!");
+            secretMessage = '';
+            shift = 0;
+            encryptedMessage = '';
+        } else {
+            replier.reply("틀렸습니다. 다시 시도해보세요." + 
+                          "\n암호: " + encryptedMessage +
+                          "\n(힌트: 알파벳이 " + shift + "칸 이동했어요)" +
+                          "\n포기하려면 '포기'라고 입력하세요.");
+        }
+    }
+}
