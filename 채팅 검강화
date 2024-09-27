@@ -1,0 +1,64 @@
+var player = {
+  sword: {
+    name: "기본 검",
+    level: 0
+  },
+  gold: 1000,
+  chatCount: 0
+};
+
+function response(room, msg, sender, isGroupChat, replier) {
+  // 채팅 카운트 증가 및 골드 지급 체크
+  player.chatCount++;
+  if (player.chatCount % 100 === 0) {
+    player.gold += 2000;
+    replier.reply("축하합니다! 채팅 " + player.chatCount + "회 달성! 2000 골드를 획득했습니다.");
+  }
+
+  // 명령어 처리
+  if (msg === "!검강화") {
+    enhanceSword(replier);
+  } else if (msg === "!상태") {
+    showStatus(replier);
+  } else if (msg === "!도움말") {
+    showHelp(replier);
+  }
+}
+
+function enhanceSword(replier) {
+  var cost = (player.sword.level + 1) * 100;
+  
+  if (player.gold < cost) {
+    replier.reply("골드가 부족합니다. 필요한 골드: " + cost);
+    return;
+  }
+  
+  player.gold -= cost;
+  
+  var successRate = Math.max(95 - player.sword.level * 5, 5);
+  var randomValue = Math.random() * 100;
+  
+  if (randomValue <= successRate) {
+    player.sword.level++;
+    replier.reply("강화 성공! " + player.sword.name + "의 레벨이 " + player.sword.level + "이 되었습니다.");
+  } else {
+    replier.reply("강화 실패... 골드만 사라졌습니다.");
+  }
+}
+
+function showStatus(replier) {
+  var status = "[ 플레이어 상태 ]\n";
+  status += "검: " + player.sword.name + " (Lv." + player.sword.level + ")\n";
+  status += "골드: " + player.gold + "\n";
+  status += "총 채팅 수: " + player.chatCount;
+  replier.reply(status);
+}
+
+function showHelp(replier) {
+  var help = "[ 검강화 게임 도움말 ]\n";
+  help += "!검강화 - 검을 강화합니다.\n";
+  help += "!상태 - 현재 상태를 확인합니다.\n";
+  help += "!도움말 - 도움말을 표시합니다.\n";
+  help += "채팅을 100번 할 때마다 2000 골드를 획득합니다!";
+  replier.reply(help);
+}
