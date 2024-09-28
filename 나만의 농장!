@@ -1,0 +1,232 @@
+var farm = {
+  crops: {},
+  money: 100,
+  level: 1,
+  experience: 0,
+  maxCrops: 5,
+  lastDaily: 0,
+  upgrades: {
+    fertilizer: 0,
+    irrigation: 0
+  }
+};
+var crops = {
+    당근: {price: 10, growthTime: 5, sellPrice: 20},
+    감자: {price: 15, growthTime: 8, sellPrice: 30},
+    토마토: {price: 20, growthTime: 10, sellPrice: 40},
+    딸기: {price: 25, growthTime: 12, sellPrice: 50},
+    상추: {price: 5, growthTime: 3, sellPrice: 15},
+    옥수수: {price: 20, growthTime: 10, sellPrice: 40},
+    고추: {price: 15, growthTime: 6, sellPrice: 30},
+    배추: {price: 12, growthTime: 8, sellPrice: 25},
+    무: {price: 8, growthTime: 4, sellPrice: 18},
+    파프리카:{price :30 , growthTime :12 , sellPrice :60},
+    귤:{price :25 , growthTime :15 , sellPrice :50},
+    사과:{price :40 , growthTime :25 , sellPrice :80},
+    블루베리:{price :50 , growthTime :30 , sellPrice :100}
+};
+
+var weather = ["맑음", "흐림", "비", "더움", "추움"];
+var currentWeather = "맑음";
+
+var upgrades = {
+  fertilizer: {name: "비료", price: 100, effect: "작물 성장 속도 10% 증가"},
+  irrigation: {name: "관개 시설", price: 150, effect: "가뭄 피해 감소"}
+};
+
+function response(room, msg, sender, isGroupChat, replier) {
+  var command = msg.split(" ")[0];
+  var param = msg.split(" ")[1];
+  
+  switch(command) {
+    case "/농장":
+      showFarmStatus(replier);
+      break;
+    case "/심기":
+      plantCrop(param, replier);
+      break;
+    case "/수확":
+      harvestCrop(param, replier);
+      break;
+    case "/상점":
+      showShop(replier);
+      break;
+    case "/날씨":
+      checkWeather(replier);
+      break;
+    case "/업그레이드":
+      showUpgrades(replier);
+      break;
+    case "/구매":
+      buyUpgrade(param, replier);
+      break;
+    case "/일일보상":
+      claimDailyReward(replier);
+      break;
+    case "/도움말":
+      showHelp(replier);
+      break;
+  }
+}
+
+function showFarmStatus(replier) {
+  var status = "농장 상태:\n";
+  status += "레벨: " + farm.level + " (경험치: " + farm.experience + "/100)\n";
+  status += "소지금: " + farm.money + "원\n";
+  status += "작물 목록 (" + Object.keys(farm.crops).length + "/" + farm.maxCrop
+s + "):\n";
+  
+  for (var crop in farm.crops) {
+    status += crop + ": " + farm.crops[crop].count + "개 (성장: " + farm.crops[crop].growth + "/" + crops[crop].growthTime + ")\n";
+  }
+  
+  status += "\n업그레이드:\n";
+  status += "비료: Lv." + farm.upgrades.fertilizer + "\n";
+  status += "관개 시설: Lv." + farm.upgrades.irrigation + "\n";
+  
+  replier.reply(status);
+}
+
+function plantCrop(cropName, replier) {
+  if (!crops[cropName]) {
+    replier.reply("알 수 없는 작물입니다.");
+    return;
+  }
+  
+  if (Object.keys(farm.crops).length >= farm.maxCrops) {
+    replier.reply("농장이 가득 찼습니다. 레벨을 올려 농장을 확장하세요.");
+    return;
+  }
+  
+  if (farm.money < crops[cropName].price) {
+    replier.reply("돈이 부족합니다.");
+    return;
+  }
+  
+  farm.money -= crops[cropName].price;
+  if (!farm.crops[cropName]) {
+    farm.crops[cropName] = {count: 1, growth: 0};
+  } else {
+    farm.crops[cropName].count++;
+  }
+  replier.reply(cropName + "을(를) 심었습니다.");
+}
+
+function harvestCrop(cropName, replier) {
+  if (!farm.crops[cropName] || farm.crops[cropName].count <= 0) {
+    replier.reply("수확할 " + cropName + "이(가) 없습니다.");
+    return;
+  }
+  
+  if (farm.crops[cropName].growth < crops[cropName].growthTime) {
+    replier.reply(cropName + "이(가) 아직 다 자라지 않았습니다.");
+    return;
+  }
+  
+  var harvestCount = farm.crops[cropName].count;
+  var profit = crops[cropName].sellPrice * harvestCount;
+  
+  // 날씨에 따른 수확량 조정
+  if (currentWeather === "맑음") profit *= 1.1;
+  else if (currentWeather === "흐림") profit *= 0.9;
+  
+  farm.money += profit;
+  delete farm.crops[cropName];
+  
+  farm.experience += harvestCount * 5;
+  checkLevelUp(replier);
+  
+  replier.reply(cropName + " " + harvestCount + "개를 수확했습니다. +" + Math.floor(profit) + "원");
+}
+
+function checkLevelUp(replier) {
+  if (farm.experience >= 100) {
+    farm.level++;
+    farm.experience -= 100;
+    farm.maxCrops += 2;
+    replier.reply("레벨 업! 현재 레벨: " + farm.level + "\n농장 크기가 확장되었습니다.");
+  }
+}
+
+function showShop(replier) {
+  var shopList = "작물 상점:\n";
+  for (var crop in crops) {
+    shopList += crop + " - 가격: " + crops[crop].price + "원, 성장 시간: " + crops[crop].growthTime + ", 판매 가격: " + crops[crop].sellPrice + "원\n";
+  }
+  replier.reply(shopList);
+}
+
+function checkWeather(replier) {
+  replier.reply("현재 날씨: " + currentWeather);
+}
+
+function showUpgrades(replier) {
+  var upgradeList = "업그레이드 목록:\n";
+  for (var upgrade in upgrades) {
+    upgradeList += upgrades[upgrade].name + " - 가격: " + upgrades[upgrade].price + "원, 효과: " + upgrades[upgrade].effect + "\n";
+  }
+  replier.reply(upgradeList);
+}
+
+function buyUpgrade(upgradeName, replier) {
+  var upgrade = upgrades[upgradeName];
+  if (!upgrade) {
+    replier.reply("알 수 없는 업그레이드입니다.");
+    return;
+  }
+  
+  if (farm.money < upgrade.price) {
+    replier.reply("돈이 부족합니다.");
+    return;
+  }
+  
+  farm.money -= upgrade.price;
+  farm.upgrades[upgradeName]++;
+  replier.reply(upgrade.name + "을(를) 구매했습니다. 현재 레벨: " + farm.upgrades[upgradeName]);
+}
+
+function claimDailyReward(replier) {
+  var now = Date.now();
+  if (now - farm.lastDaily < 24 * 60 * 60 * 1000) {
+    replier.reply("일일 보상은 24시간마다 받을 수 있습니다.");
+    return;
+  }
+  
+  farm.lastDaily = now;
+  var reward = 50 + (farm.level * 10);
+  farm.money += reward;
+  replier.reply("일일 보상으로 " + reward + "원을 받았습니다!");
+}
+
+function showHelp(replier) {
+  var helpText = "농장 게임 명령어:\n";
+  helpText += "/농장 - 농장 상태 확인\n";
+  helpText += "/심기 [작물이름] - 작물 심기\n";
+  helpText += "/수확 [작물이름] - 작물 수확\n";
+  helpText += "/상점 - 작물 정보 확인\n";
+  helpText += "/날씨 - 현재 날씨 확인\n";
+  helpText += "/업그레이드 - 업그레이드 목록 확인\n";
+  helpText += "/구매 [업그레이드이름] - 업그레이드 구매\n";
+  helpText += "/일일보상 - 일일 보상 받기\n";
+  helpText += "/도움말 - 도움말 보기";
+  replier.reply(helpText);
+}
+
+// 작물 성장 및 날씨 변화 시뮬레이션 (1분마다 실행)
+function onTime() {
+  for (var cropName in farm.crops) {
+    var growthIncrease = 1 + (farm.upgrades.fertilizer * 0.1);
+    if (currentWeather === "더움") growthIncrease *= 1.2;
+    else if (currentWeather === "추움") growthIncrease *= 0.8;
+    
+    farm.crops[cropName].growth += growthIncrease;
+    if (farm.crops[cropName].growth > crops[cropName].growthTime) {
+      farm.crops[cropName].growth = crops[cropName].growthTime;
+    }
+  }
+  
+  // 날씨 변화
+  if (Math.random() < 0.2) {  // 20% 확률로 날씨 변화
+    currentWeather = weather[Math.floor(Math.random() * weather.length)];
+  }
+}
