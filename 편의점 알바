@@ -1,0 +1,326 @@
+let player = {
+    name: "",
+    money: 0,
+    shift: 0,
+    customers: 0,
+    skill: 1,
+    energy: 100,
+    items: {
+        coffee: 0,
+        snack: 0,
+        energyDrink: 0
+    },
+    level: 1,
+    exp: 0,
+    position: "신입 알바"
+};
+
+let isGameStarted = false;
+let dailyQuest = null;
+
+const ITEM_PRICES = {
+    coffee: 500,
+    snack: 1000,
+    energyDrink: 2000
+};
+
+const POSITIONS = ["신입 알바", "경력 알바", "매니저", "점장"];
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg === "!알바시작") {
+        startGame(sender, replier);
+    } else if (msg.startsWith("!근무")) {
+        work(msg, replier);
+    } else if (msg === "!알바종료") {
+        endGame(replier);
+    } else if (msg.startsWith("!구매")) {
+        buyItem(msg, replier);
+    } else if (msg === "!상태") {
+        showStatus(replier);
+    } else if (msg === "!훈련") {
+        train(replier);
+    } else if (msg === "!퀘스트") {
+        showQuest(replier);
+    } else if (msg === "!사용") {
+        useItem(msg, replier);
+    } else if (msg === "!도움말") {
+        showHelp(replier);
+    }
+}
+
+function startGame(sender, replier) {
+    if (!isGameStarted) {
+        isGameStarted = true;
+        player.name = sender;
+        player.money = 1000;
+        player.shift = 0;
+        player.customers = 0;
+        player.skill = 1;
+        player.energy = 100;
+        player.items = {coffee: 0, snack: 0, energyDrink: 0};
+        player.level = 1;
+        player.exp = 0;
+        player.position = "신입 알바";
+        generateDailyQuest();
+        replier.reply(sender + "님의 편의점 알바가 시작되었습니다!\n초기 자금: 1000원");
+    } else {
+        replier.reply("이미 게임이 진행 중입니다.");
+    }
+}
+
+function work(msg, replier) {
+    if (!isGameStarted) {
+        replier.reply("게임을 시작하려면 '!알바시작'을 입력하세요.");
+        return;
+    }
+    
+    let hours = 1;
+    if (msg.split(" ").length > 1) {
+        hours = parseInt(msg.split(" ")[1]) || 1;
+    }
+    hours = Math.min(Math.max(hours, 1), 8); // 1시간 이상 8시간 이하로 제한
+    
+    if (player.energy < hours * 10) {
+        replier.reply("에너지가 부족합니다. 휴식이나 아이템이 필요해요!");
+        return;
+    }
+    
+    player.shift += hours;
+    player.energy -= hours * 10;
+    
+    let totalEarnings = 0;
+    let totalCustomers = 0;
+    let expGained = 0;
+    
+    for (let i = 0; i < hours; i++) {
+        let earnings = Math.floor(Math.random() * 5000 * player.skill) + 5000;
+        let customers = Math.floor(Math.random() * 10 * player.skill) + 1;
+        totalEarnings += earnings;
+        totalCustomers += customers;
+        expGained += customers;
+        
+        // 랜덤 이벤트
+        if (Math.random() < 0.15) {
+            let event = randomEvent();
+            replier.reply(event.message);
+            totalEarnings += event.earnings;
+            expGained += event.exp;
+        }
+    }
+    
+    // 직급에 따른 보너스
+    let positionBonus = POSITIONS.indexOf(player.position) * 0.1;
+    totalEarnings = Math.floor(totalEarnings * (1 + positionBonus));
+    
+    player.money += totalEarnings;
+    player.customers += totalCustomers;
+    player.exp += expGained;
+    
+    checkLevelUp(replier);
+    checkQuestProgress(totalCustomers, replier);
+    
+    replier.reply(player.name + "님의 근무 결과 (" + hours + "시간):\n" +
+                  "수입: " + totalEarnings + "원\n" +
+                  "손님 수: " + totalCustomers + "명\n" +
+                  "획득 경험치: " + expGained + "\n" +
+                  "남은 에너지: " + player.energy);
+}
+
+function randomEvent() {
+    let events = [
+        {message: "와! 행운의 고객이 방문했습니다.", earnings: 10000, exp: 50},
+        {message: "친절한 서비스로 팁을 받았습니다!", earnings: 5000, exp: 30},
+        {message: "매장 청결 상태가 좋아 보너스를 받았습니다.", earnings: 7000, exp: 40},
+        {message: "재고 정리를 완벽하게 해서 상사에게 칭찬받았습니다.", earnings: 3000, exp: 60},
+        {message: "어려운 고객을 잘 응대해 동료들에게 박수를 받았습니다.", earnings: 2000, exp: 70}
+    ];
+    return events[Math.floor(Math.random() * events.length)];
+}
+
+function checkLevelUp(replier) {
+    let expNeeded = player.level * 100;
+    while (player.exp >= expNeeded) {
+        player.level++;
+        player.exp -= expNeeded;
+        player.skill += 0.2;
+        replier.reply("축하합니다! 레벨이 올랐습니다.\n현재 레벨: " + player.level + "\n스킬 증가: +" + 0.2);
+        
+        if (player.level % 5 === 0) {
+            checkPromotion(replier);
+        }
+        expNeeded = player.level * 100;
+    }
+}
+
+function checkPromotion(replier) {
+    let currentPositionIndex = POSITIONS.indexOf(player.position);
+    if (currentPositionIndex < POSITIONS.length - 1) {
+        player.position = POSITIONS[currentPositionIndex + 1];
+        replier.reply("축하합니다! 승진하셨습니다.\n새로운 직급: " + player.position);
+    }
+}
+
+function generateDailyQuest() {
+    let quests = [
+        {description: "50명의 고객 응대하기", target: 50, progress: 0, reward: 5000},
+        {description: "100명의 고객 응대하기", target: 100, progress: 0, reward: 10000},
+        {description: "3시간 연속 근무하기", target: 3, progress: 0, reward: 7000}
+    ];
+    dailyQuest = quests[Math.floor(Math.random() * quests.length)];
+}
+
+function checkQuestProgress(customers, replier) {
+    if (dailyQuest.description.includes("고객 응대하기")) {
+        dailyQuest.progress += customers;
+    } else if (dailyQuest.description.includes("연속 근무하기")) {
+        dailyQuest.progress++;
+    }
+    
+    if (dailyQuest.progress >= dailyQuest.target) {
+        player.money += dailyQuest.reward;
+        replier.reply("일일 퀘스트를 완료했습니다! 보상: " + dailyQuest.reward + "원");
+        generateDailyQuest();
+    }
+}
+
+function showQuest(replier) {
+    if (!isGameStarted) {
+        replier.reply("게임을 시작하려면 '!알바시작'을 입력하세요.");
+        return;
+    }
+    
+    replier.reply("현재 일일 퀘스트:\n" +
+                  dailyQuest.description + "\n" +
+                  "진행 상황: " + dailyQuest.progress + "/" + dailyQuest.target + "\n" +
+                  "보상: " + dailyQuest.reward + "원");
+}
+
+function buyItem(msg, replier) {
+    if (!isGameStarted) {
+        replier.reply("게임을 시작하려면 '!알바시작'을 입력하세요.");
+        return;
+    }
+    
+    let parts = msg.split(" ");
+    if (parts.length !== 3) {
+        replier.reply("올바른 형식: !구매 [아이템] [수량]");
+        return;
+    }
+    
+    let item = parts[1];
+    let quantity = parseInt(parts[2]);
+    
+    if (!ITEM_PRICES[item]) {
+        replier.reply("존재하지 않는 아이템입니다.");
+        return;
+    }
+    
+    let totalCost = ITEM_PRICES[item] * quantity;
+    if (player.money < totalCost) {
+        replier.reply("돈이 부족합니다.");
+        return;
+    }
+    
+    player.money -= totalCost;
+    player.items[item] += quantity;
+    
+    replier.reply(item + " " + quantity + "개를 구매했습니다.\n남은 돈: " + player.money + "원");
+}
+
+function useItem(msg, replier) {
+    if (!isGameStarted) {
+        replier.reply("게임을 시작하려면 '!알바시작'을 입력하세요.");
+        return;
+    }
+    
+    let parts = msg.split(" ");
+    if (parts.length !== 2) {
+        replier.reply("올바른 형식: !사용 [아이템]");
+        return;
+    }
+    
+    let item = parts[1];
+    
+    if (!player.items[item] || player.items[item] <= 0) {
+        replier.reply(item + "이(가) 없습니다.");
+        return;
+    }
+    
+    let energyGain = 0;
+    switch (item) {
+        case "coffee":
+            energyGain = 20;
+            break;
+        case "snack":
+            energyGain = 30;
+            break;
+        case "energyDrink":
+            energyGain = 50;
+            break;
+    }
+    
+    player.items[item]--;
+    player.energy = Math.min(player.energy + energyGain, 100);
+    
+    replier.reply(item + "을(를) 사용했습니다.\n현재 에너지: " + player.energy);
+}
+
+function showStatus(replier) {
+    if (!isGameStarted) {
+        replier.reply("게임을 시작하려면 '!알바시작'을 입력하세요.");
+        return;
+    }
+    
+    replier.reply(player.name + "님의 상태:\n" +
+                  "직급: " + player.position + "\n" +
+                  "레벨: " + player.level + " (경험치: " + player.exp + "/" + (player.level * 100) + ")\n" +
+                  "돈: " + player.money + "원\n" +
+                  "근무 시간: " + player.shift + "시간\n" +
+                  "스킬 레벨: " + player.skill.toFixed(1) + "\n" +
+                  "에너지: " + player.energy + "\n" +
+                  "아이템:\n" +
+                  " - 커피: " + player.items.coffee + "개\n" +
+                  " - 간식: " + player.items.snack + "개\n" +
+                  " - 에너지 드링크: " + player.items.energyDrink + "개");
+}
+
+function train(replier) {
+    if (!isGameStarted) {
+        replier.reply("게임을 시작하려면 '!알바시작'을 입력하세요.");
+        return;
+    }
+    
+    if (player.energy < 20) {
+        replier.reply("에너지가 부족합니다. 휴식이 필요해요!");
+        return;
+    }
+    
+    player.skill += 0.1;
+    player.energy -= 20;
+    
+    replier.reply("훈련 완료! 스킬 레벨이 상승했습니다.\n" +
+                  "현재 스킬 레벨: " + player.skill.toFixed(1) + "\n" +
+                  "남은 에너지: " + player.energy);
+}
+
+function showHelp(replier) {
+    replier.reply("편의점 알바 게임 명령어:\n" +
+                  "!알바시작 - 게임 시작\n" +
+                  "!근무 [시간] - 근무하기 (시간 미입력시 1시간)\n" +
+                  "!구매 [아이템] [수량] - 아이템 구매\n" +
+                  "!사용 [아이템] - 아이템 사용\n" +
+                  "!상태 - 현재 상태 확인\n" +
+                  "!훈련 - 스킬 향상\n" +
+                  "!퀘스트 - 일일 퀘스트 확인\n" +
+                  "!알바종료 - 게임 종료 및 결과 확인");
+}
+
+function endGame(replier) {
+    if (isGameStarted) {
+        replier.reply(player.name + "님의 알바 결과:\n" +
+                      "최종 직급: " + player.position + "\n" +
+                      "최종 레벨: " + player.level + "\n" +
+                      "총 근무 시간: " + player.shift + "시간\n" +
+                      "총 수입: " + player.money + "원\n" +
+                      "총 손님 수: " + player.customers + "명\n" +
+                      "최종 스킬 레벨: " + player.skill.toFixed(1) + "\n" +
