@@ -1,0 +1,195 @@
+var idol = {
+  name: "",
+  singing: 0,
+  dancing: 0,
+  charisma: 0,
+  energy: 100,
+  fans: 0
+};
+
+var gameState = {
+  day: 1,
+  money: 1000
+};
+
+var items = {
+  "에너지 드링크": { price: 500, effect: function() { idol.energy = Math.min(idol.energy + 30, 100); } },
+  "트레이닝복": { price: 1000, effect: function() { idol.dancing += 5; } },
+  "음악 교본": { price: 1000, effect: function() { idol.singing += 5; } },
+  "스타일북": { price: 1000, effect: function() { idol.charisma += 5; } }
+};
+
+var events = [
+  { name: "팬미팅", effect: function() { gameState.money += 500; idol.charisma += 2; } },
+  { name: "TV 출연", effect: function() { gameState.money += 1000; idol.charisma += 5; } },
+  { name: "음악 방송", effect: function() { idol.singing += 3; idol.dancing += 3; } },
+  { name: "스캔들", effect: function() { gameState.money -= 500; idol.charisma -= 2; } }
+];
+
+var rankings = [];
+
+function response(room, msg, sender, isGroupChat, replier) {
+  if (msg.startsWith("/아이돌게임")) {
+    var command = msg.split(" ")[1];
+    switch(command) {
+      case "시작":
+        startGame(replier);
+        break;
+      case "상태":
+        checkStatus(replier);
+        break;
+      case "훈련":
+        train(msg.split(" ")[2], replier);
+        break;
+      case "휴식":
+        rest(replier);
+        break;
+      case "공연":
+        perform(replier);
+        break;
+      case "상점":
+        showShop(replier);
+        break;
+      case "구매":
+        buyItem(msg.split(" ")[2], replier);
+        break;
+      case "랭킹":
+        showRanking(replier);
+        break;
+      case "종료":
+        endGame(replier);
+        break;
+      default:
+        replier.reply("알 수 없는 명령어입니다. /아이돌게임 도움말을 입력해보세요.");
+    }
+  }
+}
+
+function startGame(replier) {
+  idol.name = "신인 아이돌";
+  gameState.day = 1;
+  gameState.money = 1000;
+  idol.singing = 10;
+  idol.dancing = 10;
+  idol.charisma = 10;
+  idol.energy = 100;
+  idol.fans = 0;
+  replier.reply("새로운 아이돌 육성을 시작합니다!\n이름: " + idol.name + "\n팬 수: " + idol.fans);
+}
+
+function checkStatus(replier) {
+  var status = "아이돌 상태\n";
+  status += "이름: " + idol.name + "\n";
+  status += "노래: " + idol.singing + "\n";
+  status += "춤: " + idol.dancing + "\n";
+  status += "매력: " + idol.charisma + "\n";
+  status += "체력: " + idol.energy + "\n";
+  status += "팬 수: " + idol.fans + "\n";
+  status += "일차: " + gameState.day + "\n";
+  status += "자금: " + gameState.money + "원";
+  replier.reply(status);
+}
+
+function train(skill, replier) {
+  if (idol.energy < 20) {
+    replier.reply("체력이 부족합니다. 휴식이 필요해요!");
+    return;
+  }
+  
+  var increase = Math.floor(Math.random() * 5) + 1;
+  switch(skill) {
+    case "노래":
+      idol.singing += increase;
+      break;
+    case "춤":
+      idol.dancing += increase;
+      break;
+    case "매력":
+      idol.charisma += increase;
+      break;
+    default:
+      replier.reply("올바른 훈련 종류를 선택하세요 (노래/춤/매력)");
+      return;
+  }
+  
+  idol.energy -= 20;
+  gameState.day += 1;
+  replier.reply(skill + " 훈련 완료! +" + increase + "\n남은 체력: " + idol.energy);
+  checkRandomEvent(replier);
+}
+
+function rest(replier) {
+  var recovery = Math.floor(Math.random() * 30) + 20;
+  idol.energy = Math.min(idol.energy + recovery, 100);
+  gameState.day += 1;
+  replier.reply("휴식을 취했습니다. 체력이 " + recovery + "만큼 회복되었어요.\n현재 체력: " + idol.energy);
+}
+
+function perform(replier) {
+  if (idol.energy < 50) {
+    replier.reply("체력이 부족해 공연할 수 없습니다. 휴식이 필요해요!");
+    return;
+  }
+  
+  var performance = idol.singing + idol.dancing + idol.charisma;
+  var earnings = Math.floor(performance * (Math.random() * 10 + 5));
+  gameState.money += earnings;
+  idol.energy -= 50;
+  gameState.day += 1;
+  idol.fans += Math.floor(performance / 10);
+  
+  replier.reply("공연 성공! 수익: " + earnings + "원\n현재 자금: " + gameState.money + "원\n남은 체력: " + idol.energy + "\n팬 증가: " + Math.floor(performance / 10));
+  checkRandomEvent(replier);
+}
+
+function showShop(replier) {
+  var shopList = "아이템 상점:\n";
+  for (var item in items) {
+    shopList += item + " - " + items[item].price + "원\n";
+  }
+  replier.reply(shopList + "\n구매하려면 '/아이돌게임 구매 [아이템명]'을 입력하세요.");
+}
+
+function buyItem(itemName, replier) {
+  if (items[itemName]) {
+    if (gameState.money >= items[itemName].price) {
+      gameState.money -= items[itemName].price;
+      items[itemName].effect();
+      replier.reply(itemName + " 구매 완료! 효과가 적용되었습니다.\n남은 자금: " + gameState.money + "원");
+    } else {
+      replier.reply("자금이 부족합니다.");
+    }
+  } else {
+    replier.reply("존재하지 않는 아이템입니다.");
+  }
+}
+
+function checkRandomEvent(replier) {
+  if (Math.random() < 0.2) { // 20% 확률로 이벤트 발생
+    var event = events[Math.floor(Math.random() * events.length)];
+    event.effect();
+    replier.reply("이벤트 발생: " + event.name + "\n효과가 적용되었습니다!");
+  }
+}
+
+function endGame(replier) {
+  var score = idol.singing + idol.dancing + idol.charisma + idol.fans + Math.floor(gameState.money / 100);
+  rankings.push({name: idol.name, score: score});
+  rankings.sort(function(a, b) { return b.score - a.score; });
+  if (rankings.length > 5) rankings.pop();
+  
+  replier.reply("게임 종료!\n최종 점수: " + score + "\n랭킹에 등록되었습니다.");
+  showRanking(replier);
+  
+  // 게임 상태 초기화
+  idol = {name: "", singing: 0, dancing: 0, charisma: 0, energy: 100, fans: 0};
+  gameState = {day: 1, money: 1000};
+}
+
+function showRanking(replier) {
+  var rankingList = "랭킹:\n";
+  for (var i = 0; i < rankings.length; i++) {
+    rankingList += (i+1) + ". " + rankings[i].name + " - " + rankings[i].score + "점\n";
+  }
+  replier.reply(rankingList);
+}
