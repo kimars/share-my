@@ -1,0 +1,191 @@
+var cats = {};
+
+function response(room, msg, sender, isGroupChat, replier) {
+    var commands = msg.split(" ");
+    var action = commands[0];
+    
+    if (action === "!고양이") {
+        handleCatCommands(sender, commands.slice(1), replier);
+    }
+}
+
+function handleCatCommands(owner, commands, replier) {
+    var subCommand = commands[0];
+    
+    switch (subCommand) {
+        case "입양":
+            adoptCat(owner, commands[1], replier);
+            break;
+        case "상태":
+            checkCatStatus(owner, replier);
+            break;
+        case "먹이":
+            feedCat(owner, replier);
+            break;
+        case "놀기":
+            playWithCat(owner, replier);
+            break;
+        case "잠자기":
+            catSleep(owner, replier);
+            break;
+        case "훈련":
+            trainCat(owner, replier);
+            break;
+        case "이름변경":
+            changeCatName(owner, commands[1], replier);
+            break;
+        default:
+            replier.reply("알 수 없는 명령어입니다. !고양이 [입양/상태/먹이/놀기/잠자기/훈련/이름변경]");
+    }
+}
+
+function adoptCat(owner, name, replier) {
+    if (cats[owner]) {
+        replier.reply("이미 고양이를 키우고 있습니다.");
+        return;
+    }
+    
+    name = name || "고양이" + Math.floor(Math.random() * 1000);
+    
+    cats[owner] = {
+        name: name,
+        hunger: 50,
+        happiness: 50,
+        health: 100,
+        energy: 100,
+        skill: 0
+    };
+    
+    replier.reply(owner + "님이 " + cats[owner].name + "를 입양했습니다!");
+}
+
+function checkCatStatus(owner, replier) {
+    var cat = cats[owner];
+    if (!cat) {
+        replier.reply("아직 고양이를 입양하지 않았습니다. '!고양이 입양 [이름]'으로 고양이를 입양하세요.");
+        return;
+    }
+    
+    var status = cat.name + "의 상태\n";
+    status += "배고픔: " + cat.hunger + "/100\n";
+    status += "행복도: " + cat.happiness + "/100\n";
+    status += "건강: " + cat.health + "/100\n";
+    status += "에너지: " + cat.energy + "/100\n";
+    status += "기술: " + cat.skill + "/100";
+    
+    replier.reply(status);
+}
+
+function feedCat(owner, replier) {
+    var cat = cats[owner];
+    if (!cat) {
+        replier.reply("고양이를 먼저 입양하세요.");
+        return;
+    }
+    
+    cat.hunger = Math.min(100, cat.hunger + 20);
+    cat.health = Math.min(100, cat.health + 5);
+    cat.energy = Math.min(100, cat.energy + 10);
+    
+    replier.reply(cat.name + "에게 먹이를 주었습니다. 배고픔이 감소하고 건강과 에너지가 증가했습니다.");
+    
+    checkForEvent(cat, replier);
+}
+
+function playWithCat(owner, replier) {
+    var cat = cats[owner];
+    if (!cat) {
+        replier.reply("고양이를 먼저 입양하세요.");
+        return;
+    }
+    
+    if (cat.energy < 20) {
+        replier.reply(cat.name + "의 에너지가 부족합니다. 먼저 잠을 재워주세요.");
+        return;
+    }
+    
+    cat.happiness = Math.min(100, cat.happiness + 20);
+    cat.hunger = Math.max(0, cat.hunger - 10);
+    cat.energy = Math.max(0, cat.energy - 20);
+    
+    replier.reply(cat.name + "와 놀아주었습니다. 행복도가 증가하고 배고픔과 에너지가 감소했습니다.");
+    
+    checkForEvent(cat, replier);
+}
+
+function catSleep(owner, replier) {
+    var cat = cats[owner];
+    if (!cat) {
+        replier.reply("고양이를 먼저 입양하세요.");
+        return;
+    }
+    
+    cat.energy = 100;
+    cat.health = Math.min(100, cat.health + 10);
+    cat.hunger = Math.max(0, cat.hunger - 20);
+    
+    replier.reply(cat.name + "가 잠을 잤습니다. 에너지가 가득 찼고, 건강이 증가했지만 배가 조금 고파졌습니다.");
+    
+    checkForEvent(cat, replier);
+}
+
+function trainCat(owner, replier) {
+    var cat = cats[owner];
+    if (!cat) {
+        replier.reply("고양이를 먼저 입양하세요.");
+        return;
+    }
+    
+    if (cat.energy < 30) {
+        replier.reply(cat.name + "의 에너지가 부족합니다. 먼저 잠을 재워주세요.");
+        return;
+    }
+    
+    cat.skill = Math.min(100, cat.skill + 10);
+    cat.energy = Math.max(0, cat.energy - 30);
+    cat.hunger = Math.max(0, cat.hunger - 15);
+    
+    replier.reply(cat.name + "를 훈련시켰습니다. 기술이 향상되었지만 에너지와 배고픔이 감소했습니다.");
+    
+    checkForEvent(cat, replier);
+}
+
+function changeCatName(owner, newName, replier) {
+    var cat = cats[owner];
+    if (!cat) {
+        replier.reply("고양이를 먼저 입양하세요.");
+        return;
+    }
+    
+    if (!newName) {
+        replier.reply("새 이름을 입력해주세요. 예: !고양이 이름변경 나비");
+        return;
+    }
+    
+    var oldName = cat.name;
+    cat.name = newName;
+    replier.reply(oldName + "의 이름이 " + newName + "(으)로 변경되었습니다.");
+}
+
+function checkForEvent(cat, replier) {
+    if (Math.random() < 0.2) { // 20% 확률로 이벤트 발생
+        var event = getRandomEvent();
+        applyEvent(cat, event, replier);
+    }
+}
+
+function getRandomEvent() {
+    var events = [
+        { name: "우연한 발견", effect: function(cat) { cat.happiness += 10; return cat.name + "가 반짝이는 장난감을 발견했어요! 행복도가 증가했습니다."; }},
+        { name: "갑작스런 비", effect: function(cat) { cat.health -= 5; return "갑자기 비가 내려 " + cat.name + "가 조금 젖었어요. 건강이 약간 감소했습니다."; }},
+        { name: "특별한 간식", effect: function(cat) { cat.hunger += 15; cat.happiness += 15; return "이웃이 특별한 고양이 간식을 주었어요! " + cat.name + "의 배고픔과 행복도가 증가했습니다."; }},
+        { name: "고양이 친구", effect: function(cat) { cat.happiness += 20; cat.energy -= 10; return cat.name + "가 다른 고양이 친구를 만났어요! 행복도가 크게 증가했지만, 에너지가 조금 감소했습니다."; }},
+        { name: "잠자는 나비", effect: function(cat) { cat.skill += 5; return cat.name + "가 나비를 잡으려다 실패했어요. 하지만 기술이 조금 늘었습니다!"; }}
+    ];
+    return events[Math.floor(Math.random() * events.length)];
+}
+
+function applyEvent(cat, event, replier) {
+    var message = event.effect(cat);
+    replier.reply("이벤트 발생! " + message);
+}
