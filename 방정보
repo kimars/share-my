@@ -1,0 +1,38 @@
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+  if (msg === "/방정보") {
+    var info = "방 정보:\n";
+    
+    // 기본 정보
+    info += "1. 기본 정보\n";
+    info += "- 방 이름: " + room + "\n";
+    info += "- 발신자: " + sender + "\n";
+    info += "- 그룹채팅 여부: " + (isGroupChat ? "예" : "아니오") + "\n";
+    info += "- 패키지 이름: " + packageName + "\n\n";
+
+    // 프로필 정보
+    info += "2. 프로필 정보\n";
+    info += "- 프로필 이미지: " + (imageDB.getProfileBase64() ? "있음" : "없음") + "\n";
+    if (imageDB.getProfileBase64()) {
+      info += "- 프로필 이미지 해시: " + imageDB.getProfileHash() + "\n";
+    }
+    info += "\n";
+
+    // 메시지 관련 정보
+    info += "3. 메시지 관련 정보\n";
+    info += "- 메시지 길이: " + msg.length + " 글자\n";
+    info += "- 발신자 이름 길이: " + sender.length + " 글자\n\n";
+
+    // 시간 정보
+    var now = new Date();
+    info += "4. 시간 정보\n";
+    info += "- 현재 시간: " + now.toLocaleString() + "\n";
+    info += "- 타임스탬프: " + now.getTime() + "\n\n";
+
+    // 봇 정보
+    info += "5. 봇 정보\n";
+    info += "- 봇 이름: 메신저봇R\n";
+    info += "- 스크립트 언어: Rhino JavaScript 1.7.13\n";
+
+    replier.reply(info);
+  }
+}
