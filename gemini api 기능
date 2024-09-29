@@ -1,0 +1,170 @@
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; // Gemini API 키를 여기에 입력하세요
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+
+let schedules = {};
+let todoLists = {};
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg.startsWith("!질문 ")) {
+        var question = msg.substring(4);
+        var answer = askGemini(question);
+        replier.reply(answer);
+    } else if (msg.startsWith("!일정추가 ")) {
+        var parts = msg.substring(6).split(" ");
+        if (parts.length >= 2) {
+            var date = parts[0];
+            var event = parts.slice(1).join(" ");
+            addSchedule(date, event);
+            replier.reply("일정이 추가되었습니다: " + date + " - " + event);
+        } else {
+            replier.reply("올바른 형식: !일정추가 [날짜] [일정]");
+        }
+    } else if (msg.startsWith("!일정확인 ")) {
+        var date = msg.substring(6);
+        var events = getSchedule(date);
+        if (events.length > 0) {
+            replier.reply(date + "의 일정:\n" + events.join("\n"));
+        } else {
+            replier.reply(date + "에 등록된 일정이 없습니다.");
+        }
+    } else if (msg.startsWith("!추천 ")) {
+        var options = msg.substring(4).split(",").map(item => item.trim());
+        var recommendation = getRandomRecommendation(options);
+        replier.reply("추천: " + recommendation);
+    } else if (msg.startsWith("!단위변환 ")) {
+        var conversionRequest = msg.substring(6);
+        var result = convertUnit(conversionRequest);
+        replier.reply(result);
+    } else if (msg.startsWith("!날씨 ")) {
+        var city = msg.substring(4);
+        var weatherInfo = getWeather(city);
+        replier.reply(weatherInfo);
+    } else if (msg === "!주사위") {
+        var diceResult = rollDice();
+        replier.reply("주사위 결과: " + diceResult);
+    } else if (msg.startsWith("!할일추가 ")) {
+        var task = msg.substring(6);
+        addTodo(sender, task);
+        replier.reply("할 일이 추가되었습니다: " + task);
+    } else if (msg === "!할일목록") {
+        var todos = getTodoList(sender);
+        if (todos.length > 0) {
+            replier.reply(sender + "님의 할 일 목록:\n" + todos.join("\n"));
+        } else {
+            replier.reply("등록된 할 일이 없습니다.");
+        }
+    } else if (msg.startsWith("!계산 ")) {
+        var expression = msg.substring(4);
+        var result = calculate(expression);
+        replier.reply("계산 결과: " + result);
+    } else if (msg === "!도움말") {
+        var helpText = "사용 가능한 명령어:\n" +
+                       "1. !질문 [질문내용]: Gemini AI에게 질문하기\n" +
+                       "2. !일정추가 [날짜] [일정]: 일정 추가하기\n" +
+                       "3. !일정확인 [날짜]: 특정 날짜의 일정 확인하기\n" +
+                       "4. !추천 [옵션1, 옵션2, ...]: 랜덤 추천받기\n" +
+                       "5. !단위변환 [숫자] [단위1] to [단위2]: 단위 변환하기\n" +
+                       "6. !날씨 [도시]: 날씨 정보 확인하기\n" +
+                       "7. !주사위: 주사위 굴리기\n" +
+                       "8. !할일추가 [할일]: 할 일 추가하기\n" +
+                       "9. !할일목록: 할 일 목록 확인하기\n" +
+                       "10. !계산 [수식]: 간단한 계산하기\n" +
+                       "11. !도움말: 도움말 보기";
+        replier.reply(helpText);
+    }
+}
+
+function askGemini(question) {
+    try {
+        var url = GEMINI_API_URL + "?key=" + GEMINI_API_KEY;
+        var headers = {
+            "Content-Type": "application/json"
+        };
+        var body = JSON.stringify({
+            "contents": [{
+                "parts": [{
+                    "text": question
+                }]
+            }]
+        });
+
+        var response = org.jsoup.Jsoup.connect(url)
+            .headers(headers)
+            .requestBody(body)
+            .ignoreContentType(true)
+            .post();
+
+        var result = JSON.parse(response.body().text());
+        return result.candidates[0].content.parts[0].text;
+    } catch (e) {
+        return "오류가 발생했습니다: " + e.message;
+    }
+}
+
+function addSchedule(date, event) {
+    if (!schedules[date]) {
+        schedules[date] = [];
+    }
+    schedules[date].push(event);
+}
+
+function getSchedule(date) {
+    return schedules[date] || [];
+}
+
+function getRandomRecommendation(options) {
+    return options[Math.floor(Math.random() * options.length)];
+}
+
+function convertUnit(request) {
+    var parts = request.split(" ");
+    if (parts.length !== 4 || parts[2].toLowerCase() !== "to") {
+        return "올바른 형식: [숫자] [단위1] to [단위2]";
+    }
+
+    var value = parseFloat(parts[0]);
+    var fromUnit = parts[1].toLowerCase();
+    var toUnit = parts[3].toLowerCase();
+
+    // 간단한 단위 변환 예시 (km to miles)
+    if (fromUnit === "km" && toUnit === "miles") {
+        return value + " km는 " + (value * 0.621371) + " miles입니다.";
+    } else if (fromUnit === "miles" && toUnit === "km") {
+        return value + " miles는 " + (value * 1.60934) + " km입니다.";
+    } else {
+        return "지원하지 않는 단위 변환입니다.";
+    }
+}
+
+function getWeather(city) {
+    try {
+        var prompt = "날씨 정보를 제공해주세요. 도시: " + city + ". 현재 날씨, 온도, 습도, 풍속을 포함해주세요.";
+        var response = askGemini(prompt);
+        return city + "의 날씨 정보:\n" + response;
+    } catch (e) {
+        return "날씨 정보를 가져오는데 실패했습니다: " + e.message;
+    }
+}
+
+function rollDice() {
+    return Math.floor(Math.random() * 6) + 1;
+}
+
+function addTodo(user, task) {
+    if (!todoLists[user]) {
+        todoLists[user] = [];
+    }
+    todoLists[user].push(task);
+}
+
+function getTodoList(user) {
+    return todoLists[user] || [];
+}
+
+function calculate(expression) {
+    try {
+        return eval(expression);
+    } catch (e) {
+        return "올바른 수식을 입력해주세요.";
+    }
+}
