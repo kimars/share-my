@@ -1,0 +1,131 @@
+var Student = function(name) {
+    this.name = name;
+    this.energy = 100;
+    this.knowledge = 0;
+    this.money = 1000;
+    this.happiness = 50;
+    this.grades = [];
+    this.semester = 1;
+    this.day = 1;
+    this.club = null;
+};
+
+Student.prototype = {
+    study: function() {
+        this.energy -= 20;
+        this.knowledge += 10;
+        this.happiness -= 5;
+        return this.name + "이(가) 공부했습니다. 지식 +10, 에너지 -20, 행복도 -5";
+    },
+    sleep: function() {
+        this.energy = Math.min(100, this.energy + 30);
+        return this.name + "이(가) 잠을 잤습니다. 에너지가 30 회복되었습니다.";
+    },
+    eat: function() {
+        this.energy += 10;
+        this.money -= 100;
+        this.happiness += 5;
+        return this.name + "이(가) 식사를 했습니다. 에너지 +10, 돈 -100, 행복도 +5";
+    },
+    work: function(jobType) {
+        var jobs = {
+            "카페": {energy: -20, money: 200, happiness: -5},
+            "과외": {energy: -30, money: 400, happiness: -10},
+            "편의점": {energy: -25, money: 250, happiness: -8}
+        };
+        var job = jobs[jobType] || jobs["카페"];
+        
+        this.energy += job.energy;
+        this.money += job.money;
+        this.happiness += job.happiness;
+        
+        return this.name + "이(가) " + jobType + " 알바를 했습니다. 돈 +" + job.money + ", 에너지 " + job.energy + ", 행복도 " + job.happiness;
+    },
+    joinClub: function(clubName) {
+        this.club = clubName;
+        this.happiness += 15;
+        return this.name + "이(가) " + clubName + " 동아리에 가입했습니다. 행복도 +15";
+    },
+    attendClub: function() {
+        if (!this.club) {
+            return this.name + "은(는) 아직 동아리에 가입하지 않았습니다.";
+        }
+        this.energy -= 15;
+        this.happiness += 10;
+        return this.name + "이(가) " + this.club + " 동아리 활동에 참여했습니다. 에너지 -15, 행복도 +10";
+    },
+    takeExam: function() {
+        var score = Math.min(100, this.knowledge + Math.floor(Math.random() * 20));
+        this.grades.push(score);
+        this.knowledge -= 50;
+        this.energy -= 40;
+        return this.name + "이(가) 시험을 봤습니다. 점수: " + score + ", 지식 -50, 에너지 -40";
+    },
+    nextDay: function() {
+        this.day++;
+        if (this.day > 120) {  // 한 학기를 120일로 가정
+            this.semester++;
+            this.day = 1;
+            return this.name + "의 " + this.semester + "학기가 시작되었습니다!";
+        }
+        return this.name + "의 " + this.semester + "학기 " + this.day + "일차입니다.";
+    },
+    status: function() {
+        var avgGrade = this.grades.length ? (this.grades.reduce((a, b) => a + b) / this.grades.length).toFixed(2) : "아직 없음";
+        return this.name + "의 상태\n" +
+               "학기: " + this.semester + "학기 " + this.day + "일차\n" +
+               "에너지: " + this.energy + "\n" +
+               "지식: " + this.knowledge + "\n" +
+               "돈: " + this.money + "\n" +
+               "행복도: " + this.happiness + "\n" +
+               "평균 학점: " + avgGrade + "\n" +
+               "동아리: " + (this.club || "없음");
+    }
+};
+
+var student = null;
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    var command = msg.split(" ");
+    
+    if (command[0] === "!시작") {
+        student = new Student(command[1] || "학생");
+        replier.reply(student.name + " 대학생 시뮬레이션을 시작합니다!");
+    } else if (!student) {
+        replier.reply("!시작 [이름] 명령어로 시뮬레이션을 시작하세요.");
+        return;
+    }
+    
+    switch(command[0]) {
+        case "!공부":
+            replier.reply(student.study());
+            break;
+        case "!잠자기":
+            replier.reply(student.sleep());
+            break;
+        case "!식사":
+            replier.reply(student.eat());
+            break;
+        case "!알바":
+            replier.reply(student.work(command[1]));
+            break;
+        case "!동아리가입":
+            replier.reply(student.joinClub(command[1]));
+            break;
+        case "!동아리활동":
+            replier.reply(student.attendClub());
+            break;
+        case "!시험":
+            replier.reply(student.takeExam());
+            break;
+        case "!다음날":
+            replier.reply(student.nextDay());
+            break;
+        case "!상태":
+            replier.reply(student.status());
+            break;
+        case "!도움말":
+            replier.reply("사용 가능한 명령어:\n!시작 [이름]\n!공부\n!잠자기\n!식사\n!알바 [카페/과외/편의점]\n!동아리가입 [동아리명]\n!동아리활동\n!시험\n!다음날\n!상태\n!도움말");
+            break;
+    }
+}
