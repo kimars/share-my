@@ -1,0 +1,183 @@
+var StockMarket = (function() {
+  var stocks = {
+    "AAPL": { name: "애플", price: 150, volatility: 0.02, sector: "기술" },
+    "GOOGL": { name: "구글", price: 2800, volatility: 0.015, sector: "기술" },
+    "MSFT": { name: "마이크로소프트", price: 300, volatility: 0.018, sector: "기술" },
+    "AMZN": { name: "아마존", price: 3300, volatility: 0.025, sector: "유통" },
+    "TSLA": { name: "테슬라", price: 700, volatility: 0.03, sector: "자동차" },
+    "JPM": { name: "JP모건", price: 150, volatility: 0.01, sector: "금융" },
+    "KO": { name: "코카콜라", price: 55, volatility: 0.008, sector: "음료" },
+    "DIS": { name: "디즈니", price: 180, volatility: 0.02, sector: "엔터테인먼트" },
+    "NFLX": { name: "넷플릭스", price: 500, volatility: 0.025, sector: "미디어" },
+    "NVDA": { name: "엔비디아", price: 800, volatility: 0.028, sector: "반도체" }
+  };
+  
+  var players = {};
+  var news = [];
+  
+  function updateStockPrices() {
+    for (var symbol in stocks) {
+      if (stocks.hasOwnProperty(symbol)) {
+        var stock = stocks[symbol];
+        var change = (Math.random() - 0.5) * 2 * stock.volatility;
+        stock.price *= (1 + change);
+        stock.price = Math.round(stock.price * 100) / 100;
+      }
+    }
+  }
+  
+  function generateNews() {
+    var newsItems = [
+      "애플, 새로운 아이폰 모델 출시 예정",
+      "테슬라, 전기차 배터리 기술 혁신 발표",
+      "아마존, 클라우드 서비스 시장 점유율 확대",
+      "구글, 인공지능 기술 개발에 대규모 투자",
+      "JP모건, 새로운 핀테크 서비스 론칭",
+      "코카콜라, 신제품 출시로 매출 증가 예상",
+      "디즈니, 스트리밍 서비스 구독자 급증",
+      "넷플릭스, 오리지널 콘텐츠 제작 확대",
+      "엔비디아, 새로운 GPU 칩셋 공개"
+    ];
+    news.push(newsItems[Math.floor(Math.random() * newsItems.length)]);
+    if (news.length > 5) news.shift();
+  }
+  
+  return {
+    getStockPrice: function(symbol) {
+      return stocks[symbol] ? stocks[symbol].price : null;
+    },
+    
+    buyStock: function(playerName, symbol, quantity) {
+      if (!players[playerName]) {
+        players[playerName] = { cash: 10000, portfolio: {} };
+      }
+      
+      var player = players[playerName];
+      var stock = stocks[symbol];
+      
+      if (!stock) {
+        return "잘못된 주식 기호입니다.";
+      }
+      
+      var totalCost = stock.price * quantity;
+      
+      if (player.cash < totalCost) {
+        return "자금이 부족합니다.";
+      }
+      
+      player.cash -= totalCost;
+      player.portfolio[symbol] = (player.portfolio[symbol] || 0) + quantity;
+      
+      return symbol + " 주식 " + quantity + "주를 $" + stock.price.toFixed(2) + "에 성공적으로 구매했습니다.";
+    },
+    
+    sellStock: function(playerName, symbol, quantity) {
+      var player = players[playerName];
+      
+      if (!player || !player.portfolio[symbol] || player.portfolio[symbol] < quantity) {
+        return "판매할 주식이 충분하지 않습니다.";
+      }
+      
+      var stock = stocks[symbol];
+      var totalEarnings = stock.price * quantity;
+      
+      player.cash += totalEarnings;
+      player.portfolio[symbol] -= quantity;
+      
+      if (player.portfolio[symbol] === 0) {
+        delete player.portfolio[symbol];
+      }
+      
+      return symbol + " 주식 " + quantity + "주를 $" + stock.price.toFixed(2) + "에 성공적으로 판매했습니다.";
+    },
+    
+    getPlayerStatus: function(playerName) {
+      var player = players[playerName];
+      
+      if (!player) {
+        return "플레이어를 찾을 수 없습니다.";
+      }
+      
+      var status = "현재 자금: $" + player.cash.toFixed(2) + "\n포트폴리오:\n";
+      
+      for (var symbol in player.portfolio) {
+        if (player.portfolio.hasOwnProperty(symbol)) {
+          status += symbol + ": " + player.portfolio[symbol] + "주 (현재가: $" + stocks[symbol].price.toFixed(2) + ")\n";
+        }
+      }
+      
+      return status;
+    },
+    
+    updateMarket: function() {
+      updateStockPrices();
+      generateNews();
+      return "주가가 업데이트되었습니다.";
+    },
+    
+    getMarketStatus: function() {
+      var status = "현재 주가:\n";
+      
+      for (var symbol in stocks) {
+        if (stocks.hasOwnProperty(symbol)) {
+          status += symbol + " (" + stocks[symbol].name + "): $" + stocks[symbol].price.toFixed(2) + " [" + stocks[symbol].sector + "]\n";
+        }
+      }
+      
+      return status;
+    },
+    
+    getNews: function() {
+      return "최신 뉴스:\n" + news.join("\n");
+    }
+  };
+})();
+
+function response(room, msg, sender, isGroupChat, replier) {
+  var commands = msg.split(" ");
+  var command = commands[0].toLowerCase();
+  
+  switch(command) {
+    case "!구매":
+      if (commands.length !== 4) {
+        replier.reply("사용법: !구매 [주식기호] [수량]");
+        return;
+      }
+      var result = StockMarket.buyStock(sender, commands[1].toUpperCase(), parseInt(commands[2]));
+      replier.reply(result);
+      break;
+      
+    case "!판매":
+      if (commands.length !== 4) {
+        replier.reply("사용법: !판매 [주식기호] [수량]");
+        return;
+      }
+      var result = StockMarket.sellStock(sender, commands[1].toUpperCase(), parseInt(commands[2]));
+      replier.reply(result);
+      break;
+      
+    case "!상태":
+      var status = StockMarket.getPlayerStatus(sender);
+      replier.reply(status);
+      break;
+      
+    case "!시장":
+      var marketStatus = StockMarket.getMarketStatus();
+      replier.reply(marketStatus);
+      break;
+      
+    case "!뉴스":
+      var news = StockMarket.getNews();
+      replier.reply(news);
+      break;
+      
+    case "!업데이트":
+      if (sender === "Admin") { // 관리자 권한 체크
+        var updateResult = StockMarket.updateMarket();
+        replier.reply(updateResult);
+      } else {
+        replier.reply("관리자만 이 명령어를 사용할 수 있습니다.");
+      }
+      break;
+  }
+}
