@@ -1,0 +1,270 @@
+const Game = {
+  player: {
+    pickaxe: 1,
+    ores: {
+      coal: 0,
+      iron: 0,
+      copper: 0,
+      silver: 0,
+      gold: 0,
+      platinum: 0,
+      diamond: 0,
+      emerald: 0,
+      sapphire: 0,
+      ruby: 0,
+      amethyst: 0,
+      topaz: 0,
+      opal: 0,
+      uranium: 0
+    },
+    money: 0,
+    robots: 0,
+    lastDaily: null,
+    achievements: {
+      miner: 0,
+      richMan: 0,
+      robotMaster: 0
+    }
+  },
+  
+  mine: function() {
+    const mined = this.player.pickaxe;
+    let result = "";
+    
+    // 기본 광물 채굴
+    this.player.ores.coal += mined;
+    this.player.ores.iron += Math.floor(mined * 0.8);
+    result += "석탄 " + mined + "개, 철 " + Math.floor(mined * 0.8) + "개를 캤습니다.";
+    
+    // 특별 광물 채굴 (확률 기반)
+    const specialOres = [
+      {name: 'copper', chance: 0.3, amount: 0.5},
+      {name: 'silver', chance: 0.2, amount: 0.3},
+      {name: 'gold', chance: 0.1, amount: 0.2},
+      {name: 'platinum', chance: 0.05, amount: 0.1},
+      {name: 'diamond', chance: 0.03, amount: 0.05},
+      {name: 'emerald', chance: 0.02, amount: 0.04},
+      {name: 'sapphire', chance: 0.02, amount: 0.04},
+      {name: 'ruby', chance: 0.02, amount: 0.04},
+      {name: 'amethyst', chance: 0.04, amount: 0.08},
+      {name: 'topaz', chance: 0.04, amount: 0.08},
+      {name: 'opal', chance: 0.01, amount: 0.02},
+      {name: 'uranium', chance: 0.005, amount: 0.01}
+    ];
+    
+    specialOres.forEach(ore => {
+      if (Math.random() < ore.chance) {
+        const amount = Math.ceil(mined * ore.amount);
+        this.player.ores[ore.name] += amount;
+        result += "\n" + ore.name + "을(를) " + amount + "개 발견했습니다!";
+      }
+    });
+    
+    // 특별 이벤트: 광산 붕괴 (5% 확률)
+    if (Math.random() < 0.05) {
+      const lostOres = Math.floor(mined / 2);
+      this.player.ores.coal -= lostOres;
+      this.player.ores.iron -= Math.floor(lostOres * 0.8);
+      if (this.player.ores.coal < 0) this.player.ores.coal = 0;
+      if (this.player.ores.iron < 0) this.player.ores.iron = 0;
+      result += "\n주의! 광산이 일부 붕괴되어 일부 광물을 잃었습니다.";
+    }
+    
+    // 특별 이벤트: 보물 상자 발견 (2% 확률)
+    if (Math.random() < 0.02) {
+      const bonus = this.player.pickaxe * 10;
+      this.player.money += bonus;
+      result += "\n행운이군요! 보물 상자를 발견하여 " + bonus + "원을 얻었습니다!";
+    }
+
+    this.checkAchievements();
+    return result + "\n" + this.getOreStatus();
+  },
+  
+  robotMine: function() {
+    if (this.player.robots === 0) return "로봇이 없습니다. 상점에서 구매해주세요.";
+    
+    let result = "";
+    let totalMined = this.player.robots * 5; // 각 로봇은 5개의 광물을 캡니다
+    
+    this.player.ores.coal += totalMined;
+    this.player.ores.iron += Math.floor(totalMined * 0.8);
+    result += "로봇들이 석탄 " + totalMined + "개, 철 " + Math.floor(totalMined * 0.8) + "개를 캤습니다.";
+    
+    // 특별 광물 발견 확률
+    const specialOres = [
+      {name: 'copper', chance: 0.2, amount: 0.3},
+      {name: 'silver', chance: 0.1, amount: 0.2},
+      {name: 'gold', chance: 0.05, amount: 0.1},
+      {name: 'platinum', chance: 0.02, amount: 0.05},
+      {name: 'diamond', chance: 0.01, amount: 0.02},
+      {name: 'emerald', chance: 0.01, amount: 0.02},
+      {name: 'sapphire', chance: 0.01, amount: 0.02},
+      {name: 'ruby', chance: 0.01, amount: 0.02},
+      {name: 'amethyst', chance: 0.02, amount: 0.04},
+      {name: 'topaz', chance: 0.02, amount: 0.04},
+      {name: 'opal', chance: 0.005, amount: 0.01},
+      {name: 'uranium', chance: 0.002, amount: 0.005}
+    ];
+    
+    specialOres.forEach(ore => {
+      const found = Math.floor(totalMined * ore.chance * ore.amount);
+      if (found > 0) {
+        this.player.ores[ore.name] += found;
+        result += "\n로봇들이 " + ore.name + "을(를) " + found + "개 발견했습니다!";
+      }
+    });
+    
+    this.checkAchievements();
+    return result + "\n" + this.getOreStatus();
+  },
+  
+  buyRobot: function() {
+    const robotCost = 1000 + (this.player.robots * 500); // 로봇 가격은 구매할 때마다 증가
+    if (this.player.money >= robotCost) {
+      this.player.money -= robotCost;
+      this.player.robots++;
+      return "로봇을 구매했습니다. 현재 로봇 수: " + this.player.robots + ", 남은 돈: " + this.player.money + "원";
+    } else {
+      return "돈이 부족합니다. 필요한 돈: " + robotCost + "원, 현재 돈: " + this.player.money + "원";
+    }
+  },
+  
+  sell: function() {
+    const oreValues = {
+      coal: 5,
+      iron: 10,
+      copper: 15,
+      silver: 30,
+      gold: 50,
+      platinum: 80,
+      diamond: 200,
+      emerald: 180,
+      sapphire: 180,
+      ruby: 180,
+      amethyst: 100,
+      topaz: 100,
+      opal: 250,
+      uranium: 500
+    };
+    
+    let totalProfit = 0;
+    for (let ore in this.player.ores) {
+      totalProfit += this.player.ores[ore] * oreValues[ore];
+      this.player.ores[ore] = 0;
+    }
+    
+    this.player.money += totalProfit;
+    
+    this.checkAchievements();
+    return "광물을 팔아 " + totalProfit + "원을 벌었습니다. 현재 돈: " + this.player.money + "원";
+  },
+  
+  upgrade: function() {
+    const cost = this.player.pickaxe * 100;
+    if (this.player.money >= cost) {
+      this.player.money -= cost;
+      this.player.pickaxe++;
+      return "곡괭이를 업그레이드했습니다. 현재 레벨: " + this.player.pickaxe + ", 남은 돈: " + this.player.money + "원";
+    } else {
+      return "돈이 부족합니다. 필요한 돈: " + cost + "원, 현재 돈: " + this.player.money + "원";
+    }
+  },
+
+  dailyReward: function() {
+    const now = new Date();
+    if (this.player.lastDaily && now - this.player.lastDaily < 24 * 60 * 60 * 1000) {
+      return "일일 보상은 24시간마다 받을 수 있습니다. 다음 보상까지 기다려주세요.";
+    }
+    
+    this.player.lastDaily = now;
+    const reward = Math.floor(Math.random() * 1000) + 500;
+    this.player.money += reward;
+    return "일일 보상으로 " + reward + "원을 받았습니다!";
+  },
+
+  randomEvent: function() {
+    const events = [
+      "운이 좋군요! 모든 광물이 10% 증가했습니다.",
+      "오노! 창고에 도둑이 들어 광물의 5%를 잃었습니다.",
+      "와우! 보물을 발견해 1000원을 얻었습니다.",
+      "곡괭이가 일시적으로 강화되어 다음 광질의 효율이 2배가 됩니다."
+    ];
+    const event = events[Math.floor(Math.random() * events.length)];
+    // 이벤트 효과 적용 로직 구현
+    return "랜덤 이벤트 발생! " + event;
+  },
+
+  checkAchievements: function() {
+    let newAchievements = [];
+    const totalOres = Object.values(this.player.ores).reduce((a, b) => a + b, 0);
+    
+    if (totalOres >= 1000 && this.player.achievements.miner < 1) {
+      this.player.achievements.miner = 1;
+      newAchievements.push("초보 광부");
+    }
+    if (this.player.money >= 10000 && this.player.achievements.richMan < 1) {
+      this.player.achievements.richMan = 1;
+      newAchievements.push("소부자");
+    }
+    if (this.player.robots >= 5 && this.player.achievements.robotMaster < 1) {
+      this.player.achievements.robotMaster = 1;
+      newAchievements.push("로봇 마스터");
+    }
+    
+    return newAchievements;
+  },
+  
+  getOreStatus: function() {
+    return "현재 보유 광물:\n" + Object.entries(this.player.ores)
+      .map(([ore, amount]) => ore + ": " + amount + "개")
+      .join(", ");
+  },
+  
+  status: function() {
+    return "상태: 곡괭이 레벨 " + this.player.pickaxe + 
+           "\n" + this.getOreStatus() +
+           "\n돈: " + this.player.money + "원" +
+           "\n로봇 수: " + this.player.robots + "대" +
+           "\n업적: " + Object.entries(this.player.achievements).filter(([k,v]) => v > 0).map(([k,v]) => k).join(", ");
+  }
+};
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+  const command = msg.trim().toLowerCase().split(" ");
+  
+  switch(command[0]) {
+    case "광질":
+      replier.reply(Game.mine());
+      break;
+    case "로봇광질":
+      replier.reply(Game.robotMine());
+      break;
+    case "로봇구매":
+      replier.reply(Game.buyRobot());
+      break;
+    case "판매":
+      replier.reply(Game.sell());
+      break;
+    case "업그레이드":
+      replier.reply(Game.upgrade());
+      break;
+    case "일일보상":
+      replier.reply(Game.dailyReward());
+      break;
+    case "랜덤이벤트":
+      replier.reply(Game.randomEvent());
+      break;
+    case "상태":
+      replier.reply(Game.status());
+      break;
+    case "도움말":
+      replier.reply("명령어: 광질, 로봇광질, 로봇구매, 판매, 업그레이드, 일일보상, 랜덤이벤트, 상태, 도움말");
+      break;
+  }
+
+  const newAchievements = Game.checkAchievements();
+  if (newAchievements.length > 0) {
+    replier.reply("새로운 업적 달성: " + newAchievements.join(", "));
+  }
+}
