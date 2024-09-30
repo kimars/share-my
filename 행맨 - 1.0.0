@@ -1,0 +1,110 @@
+var games = {};
+
+var words = {
+    easy: [
+        "사과", "바나나", "커피", "물", "책", "의자", "침대", "모자",
+        "신발", "바지", "치마", "강아지", "고양이", "새", "꽃", "나무",
+        "산", "바다", "하늘", "구름", "비", "눈", "달", "별", "태양",
+        "학교", "집", "공원", "병원", "시장", "버스", "자동차", "비행기"
+    ],
+    medium: [
+        "컴퓨터", "스마트폰", "인터넷", "텔레비전", "냉장고", "에어컨",
+        "자전거", "지하철", "기차", "택시", "피아노", "기타", "바이올린",
+        "축구", "야구", "농구", "테니스", "수영", "요가", "등산",
+        "김치", "비빔밥", "불고기", "떡볶이", "피자", "햄버거", "스파게티",
+        "선생님", "의사", "경찰관", "소방관", "요리사", "프로그래머"
+    ],
+    hard: [
+        "인공지능", "빅데이터", "블록체인", "가상현실", "증강현실", "사물인터넷",
+        "양자컴퓨터", "나노기술", "바이오테크놀로지", "유전자조작",
+        "지속가능발전", "기후변화", "재생에너지", "생물다양성", "생태계",
+        "민주주의", "자본주의", "사회주의", "글로벌화", "다문화주의",
+        "철학", "심리학", "사회학", "경제학", "인류학", "고고학",
+        "르네상스", "산업혁명", "프랑스혁명", "세계대전", "냉전", "우주탐사"
+    ]
+};
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (!games[room]) {
+        games[room] = { active: false, word: "", guessedLetters: [], remainingAttempts: 6, difficulty: "" };
+    }
+
+    if (msg === "!행맨시작") {
+        replier.reply("난이도를 선택해주세요: !쉬움, !보통, !어려움");
+    } else if (msg === "!쉬움" || msg === "!보통" || msg === "!어려움") {
+        startGame(room, msg.substring(1), replier);
+    } else if (games[room].active && msg === "!힌트") {
+        giveHint(room, replier);
+    } else if (games[room].active && msg.length === 1) {
+        playGame(room, msg, replier);
+    } else if (msg === "!포기") {
+        giveUp(room, replier);
+    }
+}
+
+function startGame(room, difficulty, replier) {
+    if (games[room].active) {
+        replier.reply("이미 진행 중인 게임이 있습니다. 새 게임을 시작하려면 먼저 '!포기'를 입력해주세요.");
+        return;
+    }
+
+    games[room].active = true;
+    games[room].difficulty = difficulty;
+    var wordList = difficulty === '쉬움' ? words.easy : 
+                   (difficulty === '보통' ? words.medium : words.hard);
+    games[room].word = wordList[Math.floor(Math.random() * wordList.length)];
+    games[room].guessedLetters = [];
+    games[room].remainingAttempts = 6;
+    
+    replier.reply(difficulty + ' 난이도의 행맨 게임을 시작합니다!\n' + getHiddenWord(room) + '\n남은 기회: ' + games[room].remainingAttempts);
+}
+
+function giveHint(room, replier) {
+    var hint = "단어의 첫 글자는 '" + games[room].word.charAt(0) + "'이고, 길이는 " + games[room].word.length + "글자입니다.";
+    replier.reply(hint);
+}
+
+function playGame(room, letter, replier) {
+    if (games[room].guessedLetters.indexOf(letter) !== -1) {
+        replier.reply("이미 시도한 글자입니다.");
+        return;
+    }
+    
+    games[room].guessedLetters.push(letter);
+    
+    if (games[room].word.indexOf(letter) === -1) {
+        games[room].remainingAttempts--;
+        replier.reply("틀렸습니다!\n" + getHiddenWord(room) + "\n남은 기회: " + games[room].remainingAttempts);
+    } else {
+        replier.reply("맞았습니다!\n" + getHiddenWord(room));
+    }
+    
+    if (getHiddenWord(room).indexOf('_') === -1) {
+        replier.reply("축하합니다! " + games[room].difficulty + " 난이도의 단어를 맞추셨습니다: " + games[room].word);
+        games[room].active = false;
+    } else if (games[room].remainingAttempts === 0) {
+        replier.reply("게임 오버! " + games[room].difficulty + " 난이도의 정답은 '" + games[room].word + "' 였습니다.");
+        games[room].active = false;
+    }
+}
+
+function getHiddenWord(room) {
+    var hidden = "";
+    for (var i = 0; i < games[room].word.length; i++) {
+        if (games[room].guessedLetters.indexOf(games[room].word[i]) !== -1) {
+            hidden += games[room].word[i];
+        } else {
+            hidden += "_";
+        }
+    }
+    return hidden;
+}
+
+function giveUp(room, replier) {
+    if (games[room].active) {
+        replier.reply("게임을 포기했습니다. 정답은 '" + games[room].word + "' 였습니다.");
+        games[room].active = false;
+    } else {
+        replier.reply("현재 진행 중인 게임이 없습니다.");
+    }
+}
