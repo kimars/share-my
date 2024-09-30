@@ -1,0 +1,154 @@
+// 게임 상태를 저장할 전역 객체 확장
+var gameState = {
+  money: 10000,
+  employees: 0,
+  products: {
+    basic: 0,
+    premium: 0,
+    luxury: 0
+  },
+  reputation: 50,
+  day: 1,
+  researchPoints: 0,
+  competitors: [
+    { name: "경쟁사A", strength: 50 },
+    { name: "경쟁사B", strength: 60 }
+  ],
+  techs: {
+    efficientProduction: false,
+    advancedMarketing: false
+  }
+};
+
+// 제품 생산 함수 수정
+function produceProduct(type) {
+  if (gameState.employees > 0) {
+    var production = gameState.employees * (gameState.techs.efficientProduction ? 3 : 2);
+    var cost = 0;
+    switch(type) {
+      case "basic":
+        cost = 50;
+        break;
+      case "premium":
+        cost = 100;
+        production = Math.floor(production / 2);
+        break;
+      case "luxury":
+        cost = 200;
+        production = Math.floor(production / 3);
+        break;
+      default:
+        return "잘못된 제품 유형입니다.";
+    }
+    if (gameState.money >= cost * production) {
+      gameState.products[type] += production;
+      gameState.money -= cost * production;
+      return production + "개의 " + type + " 제품을 생산했습니다. 총 재고: " + gameState.products[type];
+    } else {
+      return "자금이 부족합니다.";
+    }
+  } else {
+    return "직원이 없어 생산할 수 없습니다.";
+  }
+}
+
+// 연구개발 함수
+function research() {
+  if (gameState.money >= 1000) {
+    gameState.money -= 1000;
+    gameState.researchPoints += 1;
+    return "연구개발을 수행했습니다. 현재 연구 포인트: " + gameState.researchPoints;
+  } else {
+    return "자금이 부족합니다.";
+  }
+}
+
+// 기술 개발 함수
+function developTech(tech) {
+  if (gameState.researchPoints >= 5) {
+    if (!gameState.techs[tech]) {
+      gameState.techs[tech] = true;
+      gameState.researchPoints -= 5;
+      return tech + " 기술을 개발했습니다!";
+    } else {
+      return "이미 개발된 기술입니다.";
+    }
+  } else {
+    return "연구 포인트가 부족합니다.";
+  }
+}
+
+// 경쟁사와 상호작용 함수
+function interactWithCompetitor(action, competitorIndex) {
+  var competitor = gameState.competitors[competitorIndex];
+  switch(action) {
+    case "협력":
+      if (Math.random() > 0.5) {
+        gameState.reputation += 5;
+        competitor.strength += 5;
+        return competitor.name + "와 협력에 성공했습니다. 평판이 상승했습니다.";
+      } else {
+        gameState.reputation -= 3;
+        return competitor.name + "와의 협력이 실패했습니다. 평판이 하락했습니다.";
+      }
+    case "경쟁":
+      if (gameState.reputation > competitor.strength) {
+        gameState.reputation += 10;
+        competitor.strength -= 5;
+        return competitor.name + "와의 경쟁에서 승리했습니다. 평판이 크게 상승했습니다.";
+      } else {
+        gameState.reputation -= 5;
+        return competitor.name + "와의 경쟁에서 패배했습니다. 평판이 하락했습니다.";
+      }
+    default:
+      return "잘못된 행동입니다.";
+  }
+}
+
+// 메인 게임 로직 확장
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+  var command = msg.split(" ");
+  switch(command[0]) {
+    case "!게임시작":
+      replier.reply(initGame());
+      break;
+    case "!직원고용":
+      replier.reply(hireEmployee());
+      break;
+    case "!생산":
+      if (command.length < 2) {
+        replier.reply("제품 유형을 지정해주세요. (basic/premium/luxury)");
+      } else {
+        replier.reply(produceProduct(command[1]));
+      }
+      break;
+    case "!판매":
+      replier.reply(sellProducts());
+      break;
+    case "!연구":
+      replier.reply(research());
+      break;
+    case "!기술개발":
+      if (command.length < 2) {
+        replier.reply("개발할 기술을 지정해주세요. (efficientProduction/advancedMarketing)");
+      } else {
+        replier.reply(developTech(command[1]));
+      }
+      break;
+    case "!경쟁사":
+      if (command.length < 3) {
+        replier.reply("행동과 경쟁사 번호를 지정해주세요. (협력/경쟁 0/1)");
+      } else {
+        replier.reply(interactWithCompetitor(command[1], parseInt(command[2])));
+      }
+      break;
+    case "!다음날":
+      replier.reply(nextDay());
+      break;
+    case "!상태":
+      replier.reply(checkStatus());
+      break;
+    default:
+      replier.reply("알 수 없는 명령어입니다.");
+  }
+}
