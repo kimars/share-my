@@ -1,270 +1,297 @@
-const Game = {
-  player: {
-    pickaxe: 1,
-    ores: {
-      coal: 0,
-      iron: 0,
-      copper: 0,
-      silver: 0,
-      gold: 0,
-      platinum: 0,
-      diamond: 0,
-      emerald: 0,
-      sapphire: 0,
-      ruby: 0,
-      amethyst: 0,
-      topaz: 0,
-      opal: 0,
-      uranium: 0
-    },
-    money: 0,
-    robots: 0,
-    lastDaily: null,
-    achievements: {
-      miner: 0,
-      richMan: 0,
-      robotMaster: 0
-    }
-  },
-  
-  mine: function() {
-    const mined = this.player.pickaxe;
-    let result = "";
-    
-    // 기본 광물 채굴
-    this.player.ores.coal += mined;
-    this.player.ores.iron += Math.floor(mined * 0.8);
-    result += "석탄 " + mined + "개, 철 " + Math.floor(mined * 0.8) + "개를 캤습니다.";
-    
-    // 특별 광물 채굴 (확률 기반)
-    const specialOres = [
-      {name: 'copper', chance: 0.3, amount: 0.5},
-      {name: 'silver', chance: 0.2, amount: 0.3},
-      {name: 'gold', chance: 0.1, amount: 0.2},
-      {name: 'platinum', chance: 0.05, amount: 0.1},
-      {name: 'diamond', chance: 0.03, amount: 0.05},
-      {name: 'emerald', chance: 0.02, amount: 0.04},
-      {name: 'sapphire', chance: 0.02, amount: 0.04},
-      {name: 'ruby', chance: 0.02, amount: 0.04},
-      {name: 'amethyst', chance: 0.04, amount: 0.08},
-      {name: 'topaz', chance: 0.04, amount: 0.08},
-      {name: 'opal', chance: 0.01, amount: 0.02},
-      {name: 'uranium', chance: 0.005, amount: 0.01}
-    ];
-    
-    specialOres.forEach(ore => {
-      if (Math.random() < ore.chance) {
-        const amount = Math.ceil(mined * ore.amount);
-        this.player.ores[ore.name] += amount;
-        result += "\n" + ore.name + "을(를) " + amount + "개 발견했습니다!";
-      }
-    });
-    
-    // 특별 이벤트: 광산 붕괴 (5% 확률)
-    if (Math.random() < 0.05) {
-      const lostOres = Math.floor(mined / 2);
-      this.player.ores.coal -= lostOres;
-      this.player.ores.iron -= Math.floor(lostOres * 0.8);
-      if (this.player.ores.coal < 0) this.player.ores.coal = 0;
-      if (this.player.ores.iron < 0) this.player.ores.iron = 0;
-      result += "\n주의! 광산이 일부 붕괴되어 일부 광물을 잃었습니다.";
-    }
-    
-    // 특별 이벤트: 보물 상자 발견 (2% 확률)
-    if (Math.random() < 0.02) {
-      const bonus = this.player.pickaxe * 10;
-      this.player.money += bonus;
-      result += "\n행운이군요! 보물 상자를 발견하여 " + bonus + "원을 얻었습니다!";
-    }
+const players = {};
+const minerals = [
+    "돌", "석탄", "구리", "철", "은", "금", "백금", "다이아몬드", "에메랄드", "루비", "사파이어", "흑옥", "자수정", 
+    "토파즈", "오팔", "가넷", "페리도트", "아쿠아마린", "tanzanite", "alexandrite", "morganite", "spinel", 
+    "kunzite", "zircon", "tourmaline", "iolite", "chrysoberyl", "benitoite", "padparadscha", "paraiba tourmaline", 
+    "red beryl", "taaffeite", "painite", "grandidierite", "jeremejevite", "chambersite", "bixbite", "poudretteite", 
+    "serendibite", "musgravite", "red diamond", "미스릴", "아다만타이트", "룬", "드래곤스톤"
+];
 
-    this.checkAchievements();
-    return result + "\n" + this.getOreStatus();
-  },
-  
-  robotMine: function() {
-    if (this.player.robots === 0) return "로봇이 없습니다. 상점에서 구매해주세요.";
-    
-    let result = "";
-    let totalMined = this.player.robots * 5; // 각 로봇은 5개의 광물을 캡니다
-    
-    this.player.ores.coal += totalMined;
-    this.player.ores.iron += Math.floor(totalMined * 0.8);
-    result += "로봇들이 석탄 " + totalMined + "개, 철 " + Math.floor(totalMined * 0.8) + "개를 캤습니다.";
-    
-    // 특별 광물 발견 확률
-    const specialOres = [
-      {name: 'copper', chance: 0.2, amount: 0.3},
-      {name: 'silver', chance: 0.1, amount: 0.2},
-      {name: 'gold', chance: 0.05, amount: 0.1},
-      {name: 'platinum', chance: 0.02, amount: 0.05},
-      {name: 'diamond', chance: 0.01, amount: 0.02},
-      {name: 'emerald', chance: 0.01, amount: 0.02},
-      {name: 'sapphire', chance: 0.01, amount: 0.02},
-      {name: 'ruby', chance: 0.01, amount: 0.02},
-      {name: 'amethyst', chance: 0.02, amount: 0.04},
-      {name: 'topaz', chance: 0.02, amount: 0.04},
-      {name: 'opal', chance: 0.005, amount: 0.01},
-      {name: 'uranium', chance: 0.002, amount: 0.005}
-    ];
-    
-    specialOres.forEach(ore => {
-      const found = Math.floor(totalMined * ore.chance * ore.amount);
-      if (found > 0) {
-        this.player.ores[ore.name] += found;
-        result += "\n로봇들이 " + ore.name + "을(를) " + found + "개 발견했습니다!";
-      }
-    });
-    
-    this.checkAchievements();
-    return result + "\n" + this.getOreStatus();
-  },
-  
-  buyRobot: function() {
-    const robotCost = 1000 + (this.player.robots * 500); // 로봇 가격은 구매할 때마다 증가
-    if (this.player.money >= robotCost) {
-      this.player.money -= robotCost;
-      this.player.robots++;
-      return "로봇을 구매했습니다. 현재 로봇 수: " + this.player.robots + ", 남은 돈: " + this.player.money + "원";
-    } else {
-      return "돈이 부족합니다. 필요한 돈: " + robotCost + "원, 현재 돈: " + this.player.money + "원";
-    }
-  },
-  
-  sell: function() {
-    const oreValues = {
-      coal: 5,
-      iron: 10,
-      copper: 15,
-      silver: 30,
-      gold: 50,
-      platinum: 80,
-      diamond: 200,
-      emerald: 180,
-      sapphire: 180,
-      ruby: 180,
-      amethyst: 100,
-      topaz: 100,
-      opal: 250,
-      uranium: 500
-    };
-    
-    let totalProfit = 0;
-    for (let ore in this.player.ores) {
-      totalProfit += this.player.ores[ore] * oreValues[ore];
-      this.player.ores[ore] = 0;
-    }
-    
-    this.player.money += totalProfit;
-    
-    this.checkAchievements();
-    return "광물을 팔아 " + totalProfit + "원을 벌었습니다. 현재 돈: " + this.player.money + "원";
-  },
-  
-  upgrade: function() {
-    const cost = this.player.pickaxe * 100;
-    if (this.player.money >= cost) {
-      this.player.money -= cost;
-      this.player.pickaxe++;
-      return "곡괭이를 업그레이드했습니다. 현재 레벨: " + this.player.pickaxe + ", 남은 돈: " + this.player.money + "원";
-    } else {
-      return "돈이 부족합니다. 필요한 돈: " + cost + "원, 현재 돈: " + this.player.money + "원";
-    }
-  },
+const tools = [
+    "나무 곡괭이", "돌 곡괭이", "구리 곡괭이", "철 곡괭이", "은 곡괭이", "금 곡괭이", "백금 곡괭이", "다이아몬드 곡괭이", 
+    "에메랄드 곡괭이", "루비 곡괭이", "사파이어 곡괭이", "미스릴 곡괭이", "아다만타이트 곡괭이", "룬 곡괭이", "드래곤스톤 곡괭이"
+];
 
-  dailyReward: function() {
-    const now = new Date();
-    if (this.player.lastDaily && now - this.player.lastDaily < 24 * 60 * 60 * 1000) {
-      return "일일 보상은 24시간마다 받을 수 있습니다. 다음 보상까지 기다려주세요.";
-    }
-    
-    this.player.lastDaily = now;
-    const reward = Math.floor(Math.random() * 1000) + 500;
-    this.player.money += reward;
-    return "일일 보상으로 " + reward + "원을 받았습니다!";
-  },
-
-  randomEvent: function() {
-    const events = [
-      "운이 좋군요! 모든 광물이 10% 증가했습니다.",
-      "오노! 창고에 도둑이 들어 광물의 5%를 잃었습니다.",
-      "와우! 보물을 발견해 1000원을 얻었습니다.",
-      "곡괭이가 일시적으로 강화되어 다음 광질의 효율이 2배가 됩니다."
-    ];
-    const event = events[Math.floor(Math.random() * events.length)];
-    // 이벤트 효과 적용 로직 구현
-    return "랜덤 이벤트 발생! " + event;
-  },
-
-  checkAchievements: function() {
-    let newAchievements = [];
-    const totalOres = Object.values(this.player.ores).reduce((a, b) => a + b, 0);
-    
-    if (totalOres >= 1000 && this.player.achievements.miner < 1) {
-      this.player.achievements.miner = 1;
-      newAchievements.push("초보 광부");
-    }
-    if (this.player.money >= 10000 && this.player.achievements.richMan < 1) {
-      this.player.achievements.richMan = 1;
-      newAchievements.push("소부자");
-    }
-    if (this.player.robots >= 5 && this.player.achievements.robotMaster < 1) {
-      this.player.achievements.robotMaster = 1;
-      newAchievements.push("로봇 마스터");
-    }
-    
-    return newAchievements;
-  },
-  
-  getOreStatus: function() {
-    return "현재 보유 광물:\n" + Object.entries(this.player.ores)
-      .map(([ore, amount]) => ore + ": " + amount + "개")
-      .join(", ");
-  },
-  
-  status: function() {
-    return "상태: 곡괭이 레벨 " + this.player.pickaxe + 
-           "\n" + this.getOreStatus() +
-           "\n돈: " + this.player.money + "원" +
-           "\n로봇 수: " + this.player.robots + "대" +
-           "\n업적: " + Object.entries(this.player.achievements).filter(([k,v]) => v > 0).map(([k,v]) => k).join(", ");
-  }
-};
+const toolCosts = [10, 50, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000];
 
 function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
-  const command = msg.trim().toLowerCase().split(" ");
-  
-  switch(command[0]) {
-    case "광질":
-      replier.reply(Game.mine());
-      break;
-    case "로봇광질":
-      replier.reply(Game.robotMine());
-      break;
-    case "로봇구매":
-      replier.reply(Game.buyRobot());
-      break;
-    case "판매":
-      replier.reply(Game.sell());
-      break;
-    case "업그레이드":
-      replier.reply(Game.upgrade());
-      break;
-    case "일일보상":
-      replier.reply(Game.dailyReward());
-      break;
-    case "랜덤이벤트":
-      replier.reply(Game.randomEvent());
-      break;
-    case "상태":
-      replier.reply(Game.status());
-      break;
-    case "도움말":
-      replier.reply("명령어: 광질, 로봇광질, 로봇구매, 판매, 업그레이드, 일일보상, 랜덤이벤트, 상태, 도움말");
-      break;
-  }
-
-  const newAchievements = Game.checkAchievements();
-  if (newAchievements.length > 0) {
-    replier.reply("새로운 업적 달성: " + newAchievements.join(", "));
-  }
+    const [command, ...args] = msg.toLowerCase().split(" ");
+    switch(command) {
+        case "!시작":
+            initPlayer(sender);
+            replier.reply(sender + "님, 광질 게임을 시작합니다!");
+            showStatus(sender, replier);
+            break;
+        case "!광질":
+            mine(sender, replier);
+            break;
+        case "!상태":
+            showStatus(sender, replier);
+            break;
+        case "!업그레이드":
+            upgradeTool(sender, replier);
+            break;
+        case "!판매":
+            if (args[0] === "모두") {
+                sellAllMinerals(sender, replier);
+            } else {
+                sellMinerals(sender, args[0], args[1], replier);
+            }
+            break;
+        case "!랭킹":
+            showRanking(replier);
+            break;
+        case "!광물목록":
+            showMineralList(replier);
+            break;
+        case "!도구목록":
+            showToolList(replier);
+            break;
+        case "!일일보상":
+            dailyReward(sender, replier);
+            break;
+        case "!탐험":
+            explore(sender, replier);
+            break;
+        case "!제작":
+            craft(sender, args.join(" "), replier);
+            break;
+        case "!퀘스트":
+            showQuests(sender, replier);
+            break;
+        case "!도움말":
+            showHelp(replier);
+            break;
+    }
 }
+
+function initPlayer(name) {
+    if (!players[name]) {
+        players[name] = {
+            minerals: Array(minerals.length).fill(0),
+            toolLevel: 0,
+            money: 100,
+            experience: 0,
+            lastDaily: null
+        };
+    }
+}
+
+function mine(name, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    let mineResult = "";
+    let expGained = 0;
+    
+    for (let i = 0; i <= player.toolLevel + 3; i++) {
+        if (Math.random() < 0.1 * (player.toolLevel + 1) / (i + 1)) {
+            let amount = Math.floor(Math.random() * (player.toolLevel + 3)) + 1;
+            player.minerals[i] += amount;
+            mineResult += minerals[i] + " " + amount + "개, ";
+            expGained += amount * (i + 1);
+        }
+    }
+    
+    player.experience += expGained;
+    
+    if (mineResult === "") {
+        replier.reply(name + "님, 아무것도 찾지 못했습니다. 다시 시도해보세요!");
+    } else {
+        replier.reply(name + "님이 광물을 캤습니다!\n" + mineResult.slice(0, -2) + "\n경험치 " + expGained + " 획득!");
+    }
+}
+
+function showStatus(name, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    let status = name + "님의 상태\n";
+    status += "도구: " + tools[player.toolLevel] + "\n";
+    status += "돈: $" + player.money.toLocaleString() + "\n";
+    status += "경험치: " + player.experience.toLocaleString() + "\n";
+    status += "보유 광물 (상위 5개):\n";
+    
+    let sortedMinerals = player.minerals
+        .map((amount, index) => ({name: minerals[index], amount}))
+        .filter(m => m.amount > 0)
+        .sort((a, b) => b.amount - a.amount);
+    
+    for (let i = 0; i < Math.min(5, sortedMinerals.length); i++) {
+        status += sortedMinerals[i].name + ": " + sortedMinerals[i].amount + "개\n";
+    }
+    
+    replier.reply(status);
+}
+
+function upgradeTool(name, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    if (player.toolLevel >= tools.length - 1) {
+        replier.reply(name + "님, 이미 최고 레벨의 도구를 사용 중입니다.");
+        return;
+    }
+    
+    let cost = toolCosts[player.toolLevel + 1];
+    if (player.money >= cost) {
+        player.money -= cost;
+        player.toolLevel++;
+        replier.reply(name + "님, 도구를 " + tools[player.toolLevel] + "(으)로 업그레이드했습니다! (비용: $" + cost.toLocaleString() + ")");
+    } else {
+        replier.reply(name + "님, 업그레이드에 필요한 돈이 부족합니다. (필요: $" + cost.toLocaleString() + ")");
+    }
+}
+
+function sellMinerals(name, mineralName, amount, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    let mineralIndex = minerals.indexOf(mineralName);
+    
+    if (mineralIndex === -1) {
+        replier.reply(name + "님, 올바른 광물 이름을 입력해주세요.");
+        return;
+    }
+    
+    amount = parseInt(amount);
+    if (isNaN(amount) || amount <= 0) {
+        replier.reply(name + "님, 올바른 수량을 입력해주세요.");
+        return;
+    }
+    
+    if (player.minerals[mineralIndex] < amount) {
+        replier.reply(name + "님, 보유한 " + mineralName + "의 수량이 부족합니다.");
+        return;
+    }
+    
+    let value = amount * (mineralIndex + 1) * 10;
+    player.minerals[mineralIndex] -= amount;
+    player.money += value;
+    
+    replier.reply(name + "님이 " + mineralName + " " + amount + "개를 $" + value.toLocaleString() + "에 판매했습니다.");
+}
+
+function sellAllMinerals(name, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    let totalValue = 0;
+    let soldItems = "";
+    
+    for (let i = 0; i < minerals.length; i++) {
+        if (player.minerals[i] > 0) {
+            let value = player.minerals[i] * (i + 1) * 10;
+            totalValue += value;
+            soldItems += minerals[i] + " " + player.minerals[i] + "개 ($" + value.toLocaleString() + "), ";
+            player.minerals[i] = 0;
+        }
+    }
+    
+    if (totalValue > 0) {
+        player.money += totalValue;
+        replier.reply(name + "님이 모든 광물을 판매했습니다!\n" + soldItems.slice(0, -2) + "\n총 판매액: $" + totalValue.toLocaleString());
+    } else {
+        replier.reply(name + "님, 판매할 광물이 없습니다.");
+    }
+}
+
+function showRanking(replier) {
+    let ranking = Object.entries(players).map(([name, data]) => ({name, score: data.experience}));
+    ranking.sort((a, b) => b.score - a.score);
+    
+    let rankingText = "경험치 랭킹 (상위 5명)\n";
+    for (let i = 0; i < Math.min(5, ranking.length); i++) {
+        rankingText += (i + 1) + ". " + ranking[i].name + " - " + ranking[i].score.toLocaleString() + " XP\n";
+    }
+    
+    replier.reply(rankingText);
+}
+
+function showMineralList(replier) {
+    let mineralList = "광물 목록:\n";
+    for (let i = 0; i < minerals.length; i++) {
+        mineralList += (i + 1) + ". " + minerals[i] + "\n";
+    }
+    replier.reply(mineralList);
+}
+
+function showToolList(replier) {
+    let toolList = "도구 목록:\n";
+    for (let i = 0; i < tools.length; i++) {
+        toolList += (i + 1) + ". " + tools[i] + " (비용: $" + toolCosts[i].toLocaleString() + ")\n";
+    }
+    replier.reply(toolList);
+}
+
+function dailyReward(name, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    let now = new Date();
+    
+    if (player.lastDaily && now - player.lastDaily < 24 * 60 * 60 * 1000) {
+        let remainingTime = 24 * 60 * 60 * 1000 - (now - player.lastDaily);
+        let hours = Math.floor(remainingTime / (60 * 60 * 1000));
+        let minutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
+        replier.reply(name + "님, 일일 보상을 이미 받았습니다. " + hours + "시간 " + minutes + "분 후에 다시 받을 수 있습니다.");
+        return;
+    }
+    
+    let reward = Math.floor(Math.random() * 901) + 100;  // 100 ~ 1000 사이의 랜덤 보상
+    player.money += reward;
+    player.lastDaily = now;
+    
+    replier.reply(name + "님, 일일 보상으로 $" + reward.toLocaleString() + "를 받았습니다!");
+}
+
+function explore(name, replier) {
+    if (!players[name]) {
+        replier.reply(name + "님, 먼저 !시작 명령어로 게임을 시작해주세요.");
+        return;
+    }
+    
+    let player = players[name];
+    let exploreResult = "";
+    let expGained = 0;
+    
+    // 50% 확률로 특별한 광물을 발견
+    if (Math.random() < 0.5) {
+        let specialMineralIndex = Math.floor(Math.random() * (minerals.length - player.toolLevel)) + player.toolLevel;
+        let amount = Math.floor(Math.random() * 3) + 1;
+        player.minerals[specialMineralIndex] += amount;
+        exploreResult += minerals[specialMineralIndex] + " " + amount + "개를 발견했습니다!\n";
+        expGained += amount * (specialMineralIndex + 1) * 2;
+    }
+    
+    // 30% 확률로 돈을 발견
+    if (Math.random() < 0.3) {
+        let moneyFound = Math.floor(Math.random() * 901) + 100;  // 100 ~ 1000 사이의 랜덤 금액
+        player.money += moneyFound;
+        exploreResult += "$" + moneyFound.toLocaleString() + "를 발견했습니다!\n";
+    }
+    
+    player.experience += expGained;
+    
+    if (exploreResult === "") {
+        replier.reply(name + "님, 탐험에서 아무것도 발견하지 못했습니다. 다음에 다시 시도해보세요!");
+    } else {
+        replier.reply(name + "님의 탐험
