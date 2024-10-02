@@ -1,0 +1,287 @@
+var gameData = {};
+var events = {};
+var huntingAreas = {
+    "초보자 사냥터": { level: 1, monsters: ["슬라임", "고블린"] },
+    "중급자 사냥터": { level: 10, monsters: ["오크", "트롤"] },
+    "고급자 사냥터": { level: 20, monsters: ["드래곤", "데몬"] },
+    "천계감옥": { level: 30, monsters: ["천사", "대천사"] },
+    "차원의 틈새": { level: 50, monsters: ["차원수호자", "시공의 왜곡"] }
+};
+var weapons = {
+    "목검": { power: 10, cost: 0 },
+    "철검": { power: 30, cost: 1000 },
+    "마법검": { power: 50, cost: 5000 },
+    "사신의 낫": { power: 100, cost: 20000 },
+    "운명의 가위": { power: 200, cost: 50000 }
+};
+var skills = {
+    "빠른 베기": { power: 20, mpCost: 10 },
+    "회오리 베기": { power: 50, mpCost: 30 },
+    "사신의 일격": { power: 100, mpCost: 50 }
+};
+var companions = {
+    "요정": { power: 10, cost: 5000 },
+    "늑대": { power: 30, cost: 15000 },
+    "드래곤": { power: 100, cost: 50000 }
+};
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg.startsWith("!")) {
+        var command = msg.substring(1).split(" ");
+        var action = command[0];
+        var param = command.slice(1).join(" ");
+
+        switch (action) {
+            case "시작":
+                startGame(sender, replier);
+                break;
+            case "상태":
+                showStatus(sender, replier);
+                break;
+            case "사냥":
+                hunt(sender, param, replier);
+                break;
+            case "강화":
+                upgrade(sender, replier);
+                break;
+            case "무기구매":
+                buyWeapon(sender, param, replier);
+                break;
+            case "스킬배우기":
+                learnSkill(sender, param, replier);
+                break;
+            case "동료구매":
+                buyCompanion(sender, param, replier);
+                break;
+            case "보스전":
+                bossFight(sender, replier);
+                break;
+            case "이벤트":
+                showEvents(replier);
+                break;
+            case "도움말":
+                showHelp(replier);
+                break;
+            default:
+                replier.reply("알 수 없는 명령어입니다. !도움말을 입력하여 사용 가능한 명령어를 확인하세요.");
+        }
+    }
+}
+
+function startGame(player, replier) {
+    if (gameData[player]) {
+        replier.reply(player + "님은 이미 게임을 시작하셨습니다.");
+    } else {
+        gameData[player] = {
+            level: 1,
+            exp: 0,
+            gold: 0,
+            mp: 50,
+            weapon: weapons["목검"],
+            skills: [],
+            companions: [],
+            huntingArea: "초보자 사냥터",
+            bossKills: 0
+        };
+        replier.reply(player + "님의 사신 키우기 게임을 시작합니다!");
+    }
+}
+
+function showStatus(player, replier) {
+    var p = gameData[player];
+    if (p) {
+        var status = player + "님의 사신 상태\n";
+        status += "레벨: " + p.level + "\n";
+        status += "경험치: " + p.exp + "/" + (p.level * 100) + "\n";
+        status += "골드: " + p.gold + "\n";
+        status += "MP: " + p.mp + "\n";
+        status += "무기: " + p.weapon.name + " (공격력: " + p.weapon.power + ")\n";
+        status += "스킬: " + p.skills.join(", ") + "\n";
+        status += "동료: " + p.companions.join(", ") + "\n";
+        status += "현재 사냥터: " + p.huntingArea + "\n";
+        status += "보스 처치 수: " + p.bossKills;
+        replier.reply(status);
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function hunt(player, area, replier) {
+    var p = gameData[player];
+    if (p) {
+        if (area && huntingAreas[area]) {
+            if (p.level >= huntingAreas[area].level) {
+                p.huntingArea = area;
+            } else {
+                replier.reply("레벨이 부족하여 해당 사냥터에 입장할 수 없습니다.");
+                return;
+            }
+        }
+        var monster = huntingAreas[p.huntingArea].monsters[Math.floor(Math.random() * huntingAreas[p.huntingArea].monsters.length)];
+        var expGain = Math.floor(Math.random() * 20) + 10 + (huntingAreas[p.huntingArea].level * 2);
+        var goldGain = Math.floor(Math.random() * 50) + 20 + (huntingAreas[p.huntingArea].level * 5);
+        
+        // 동료 보너스
+        p.companions.forEach(companion => {
+            expGain += companions[companion].power / 2;
+            goldGain += companions[companion].power;
+        });
+
+        p.exp += expGain;
+        p.gold += goldGain;
+        p.mp = Math.min(p.mp + 5, 100);  // MP 회복
+        
+        if (p.exp >= p.level * 100) {
+            p.level++;
+            p.exp = 0;
+            p.mp += 10;  // 레벨업 시 MP 증가
+            replier.reply(player + "님의 사신이 레벨 업! 현재 레벨: " + p.level);
+        }
+        replier.reply(player + "님이 " + p.huntingArea + "에서 " + monster + "을(를) 사냥했습니다.\n경험치 +" + expGain + "\n골드 +" + goldGain + "\nMP +" + 5);
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function upgrade(player, replier) {
+    var p = gameData[player];
+    if (p) {
+        var cost = p.weapon.power * 100;
+        if (p.gold >= cost) {
+            p.gold -= cost;
+            p.weapon.power += 5;
+            replier.reply(player + "님의 무기가 강화되었습니다!\n" + p.weapon.name + " (공격력: " + p.weapon.power + ")");
+        } else {
+            replier.reply("골드가 부족합니다. 필요 골드: " + cost);
+        }
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function buyWeapon(player, weaponName, replier) {
+    var p = gameData[player];
+    if (p) {
+        if (weapons[weaponName]) {
+            if (p.gold >= weapons[weaponName].cost) {
+                p.gold -= weapons[weaponName].cost;
+                p.weapon = { name: weaponName, power: weapons[weaponName].power };
+                replier.reply(player + "님이 " + weaponName + "을(를) 구매했습니다!");
+            } else {
+                replier.reply("골드가 부족합니다. 필요 골드: " + weapons[weaponName].cost);
+            }
+        } else {
+            replier.reply("존재하지 않는 무기입니다.");
+        }
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function learnSkill(player, skillName, replier) {
+    var p = gameData[player];
+    if (p) {
+        if (skills[skillName]) {
+            if (!p.skills.includes(skillName)) {
+                if (p.gold >= skills[skillName].power * 100) {
+                    p.gold -= skills[skillName].power * 100;
+                    p.skills.push(skillName);
+                    replier.reply(player + "님이 " + skillName + " 스킬을 배웠습니다!");
+                } else {
+                    replier.reply("골드가 부족합니다. 필요 골드: " + (skills[skillName].power * 100));
+                }
+            } else {
+                replier.reply("이미 배운 스킬입니다.");
+            }
+        } else {
+            replier.reply("존재하지 않는 스킬입니다.");
+        }
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function buyCompanion(player, companionName, replier) {
+    var p = gameData[player];
+    if (p) {
+        if (companions[companionName]) {
+            if (!p.companions.includes(companionName)) {
+                if (p.gold >= companions[companionName].cost) {
+                    p.gold -= companions[companionName].cost;
+                    p.companions.push(companionName);
+                    replier.reply(player + "님이 " + companionName + " 동료를 영입했습니다!");
+                } else {
+                    replier.reply("골드가 부족합니다. 필요 골드: " + companions[companionName].cost);
+                }
+            } else {
+                replier.reply("이미 영입한 동료입니다.");
+            }
+        } else {
+            replier.reply("존재하지 않는 동료입니다.");
+        }
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function bossFight(player, replier) {
+    var p = gameData[player];
+    if (p) {
+        if (p.level >= 10) {
+            var bossHP = p.level * 100;
+            var playerDamage = p.weapon.power;
+            p.skills.forEach(skill => playerDamage += skills[skill].power);
+            p.companions.forEach(companion => playerDamage += companions[companion].power);
+
+            var turns = Math.ceil(bossHP / playerDamage);
+            var mpCost = 0;
+            p.skills.forEach(skill => mpCost += skills[skill].mpCost);
+
+            if (p.mp >= mpCost * turns) {
+                p.mp -= mpCost * turns;
+                p.bossKills++;
+                var expGain = p.level * 200;
+                var goldGain = p.level * 500;
+                p.exp += expGain;
+                p.gold += goldGain;
+
+                if (p.exp >= p.level * 100) {
+                    p.level++;
+                    p.exp = 0;
+                    replier.reply(player + "님의 사신이 레벨 업! 현재 레벨: " + p.level);
+                }
+
+                replier.reply(player + "님이 보스를 처치했습니다!\n경험치 +" + expGain + "\n골드 +" + goldGain + "\n남은 MP: " + p.mp);
+            } else {
+                replier.reply("MP가 부족하여 보스전에 도전할 수 없습니다.");
+            }
+        } else {
+            replier.reply("보스전에 도전하려면 레벨 10 이상이어야 합니다.");
+        }
+    } else {
+        replier.reply(player + "님은 아직 게임을 시작하지 않았습니다. !시작 명령어로 게임을 시작하세요.");
+    }
+}
+
+function showEvents(replier) {
+    var eventList = "현재 진행 중인 이벤트:\n";
+    for (var event in events) {
+        eventList += "- " + event + ": " + events[event].description + "\n";
+    }
+    replier.reply(eventList);
+}
+
+function showHelp(replier) {
+    var help = "사용 가능한 명령어:\n";
+    help += "!시작 - 게임 시작\n";
+    help += "!상태 - 사신 상태 확인\n";
+    help += "!사냥 [사냥터] - 사냥하기\n";
+    help += "!강화 - 무기 강화\n";
+    help += "!무기구매 [무기이름] - 새 무기 구매\n";
+    help += "!스킬배우기 [스킬이름] - 새 스킬 배우기\n";
+    help += "!동료구매 [동료이름] - 새 동료 구매\n";
+    help += "!보스전 - 보스와 전투\n";
+    help += "!이벤트 - 현재 진행 중인 이벤트 확인\n";
+    help += "!도움말 - 명령어 목록";
+    replier.reply(help);
+}
