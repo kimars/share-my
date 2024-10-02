@@ -1,0 +1,59 @@
+const words = [
+    // 짧은 단어
+    "사랑", "행복", "기술", "꿈", "희망", "평화", "자유", "지혜", "열정", "용기",
+    "성공", "도전", "창의", "혁신", "진실", "정의", "친절", "감사", "겸손", "인내",
+    
+    // 중간 길이 단어
+    "안녕하세요", "자바스크립트", "메신저봇", "인공지능", "프로그래밍",
+    "컴퓨터과학", "데이터베이스", "알고리즘", "소프트웨어", "하드웨어",
+    "네트워크보안", "클라우드컴퓨팅", "머신러닝", "딥러닝", "블록체인",
+    "가상현실", "증강현실", "사물인터넷", "빅데이터분석", "사이버보안",
+    
+    // 긴 단어와 문구
+    "인공지능과윤리적고려사항", "블록체인기술의미래전망", "양자컴퓨팅의실용화가능성",
+    "사물인터넷과스마트시티구현", "자율주행자동차기술의발전",
+    "우주탐사와인류의미래", "지속가능한발전과환경보호", "글로벌경제와문화교류",
+    "디지털트랜스포메이션전략", "사회적기업과지속가능경영",
+    "인간과기계의공존방안", "미래교육시스템의혁신", "신재생에너지와기후변화대응",
+    "생명공학기술의윤리적쟁점", "인공지능기반개인화서비스",
+    
+    // 전문 용어
+    "양자얽힘현상", "초문자열이론", "나노테크놀로지", "유비쿼터스컴퓨팅",
+    "바이오인포매틱스", "크리스퍼유전자가위", "뉴로모픽컴퓨팅",
+    "메타버스플랫폼", "엣지컴퓨팅기술", "하이퍼루프운송시스템"
+];
+
+let currentWord = "";
+let targetChar = "";
+let gameActive = false;
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg === "!게임시작") {
+        startGame(replier);
+    } else if (gameActive) {
+        checkAnswer(msg, replier);
+    }
+}
+
+function startGame(replier) {
+    currentWord = words[Math.floor(Math.random() * words.length)];
+    targetChar = currentWord[Math.floor(Math.random() * currentWord.length)];
+    gameActive = true;
+    replier.reply("다음 단어에서 '" + targetChar + "'의 위치(인덱스)를 맞춰보세요 (0부터 시작):\n" + currentWord);
+}
+
+function checkAnswer(msg, replier) {
+    const guess = parseInt(msg);
+    if (isNaN(guess)) {
+        replier.reply("숫자를 입력해주세요.");
+        return;
+    }
+
+    const correctIndex = currentWord.indexOf(targetChar);
+    if (guess === correctIndex) {
+        replier.reply("정답입니다! '" + targetChar + "'의 위치는 " + correctIndex + "번째입니다.");
+        gameActive = false;
+    } else {
+        replier.reply("틀렸습니다. 다시 시도해보세요.");
+    }
+}
