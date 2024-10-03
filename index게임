@@ -1,4 +1,4 @@
-const words = [
+var words = [
     // 짧은 단어
     "사랑", "행복", "기술", "꿈", "희망", "평화", "자유", "지혜", "열정", "용기",
     "성공", "도전", "창의", "혁신", "진실", "정의", "친절", "감사", "겸손", "인내",
@@ -14,8 +14,6 @@ const words = [
     "사물인터넷과스마트시티구현", "자율주행자동차기술의발전",
     "우주탐사와인류의미래", "지속가능한발전과환경보호", "글로벌경제와문화교류",
     "디지털트랜스포메이션전략", "사회적기업과지속가능경영",
-    "인간과기계의공존방안", "미래교육시스템의혁신", "신재생에너지와기후변화대응",
-    "생명공학기술의윤리적쟁점", "인공지능기반개인화서비스",
     
     // 전문 용어
     "양자얽힘현상", "초문자열이론", "나노테크놀로지", "유비쿼터스컴퓨팅",
@@ -23,36 +21,38 @@ const words = [
     "메타버스플랫폼", "엣지컴퓨팅기술", "하이퍼루프운송시스템"
 ];
 
-let currentWord = "";
-let targetChar = "";
-let gameActive = false;
+var games = {};
 
 function response(room, msg, sender, isGroupChat, replier) {
-    if (msg === "!게임시작") {
-        startGame(replier);
-    } else if (gameActive) {
-        checkAnswer(msg, replier);
+    if (!games[room]) {
+        games[room] = { currentWord: "", targetChar: "", gameActive: false };
+    }
+
+    var game = games[room];
+
+    if (msg === "!인덱싱게임") {
+        startGame(room, replier);
+    } else if (game.gameActive) {
+        checkAnswer(room, msg, replier);
     }
 }
 
-function startGame(replier) {
-    currentWord = words[Math.floor(Math.random() * words.length)];
-    targetChar = currentWord[Math.floor(Math.random() * currentWord.length)];
-    gameActive = true;
-    replier.reply("다음 단어에서 '" + targetChar + "'의 위치(인덱스)를 맞춰보세요 (0부터 시작):\n" + currentWord);
+function startGame(room, replier) {
+    var game = games[room];
+    game.currentWord = words[Math.floor(Math.random() * words.length)];
+    game.targetChar = game.currentWord.charAt(Math.floor(Math.random() * game.currentWord.length));
+    game.gameActive = true;
+    replier.reply("다음 단어에서 '" + game.targetChar + "'의 위치(인덱스)를 맞춰보세요 (0부터 시작):\n" + game.currentWord);
 }
 
-function checkAnswer(msg, replier) {
-    const guess = parseInt(msg);
-    if (isNaN(guess)) {
-        replier.reply("숫자를 입력해주세요.");
-        return;
-    }
+function checkAnswer(room, msg, replier) {
+    var game = games[room];
+    var guess = parseInt(msg, 10);
 
-    const correctIndex = currentWord.indexOf(targetChar);
+    var correctIndex = game.currentWord.indexOf(game.targetChar);
     if (guess === correctIndex) {
-        replier.reply("정답입니다! '" + targetChar + "'의 위치는 " + correctIndex + "번째입니다.");
-        gameActive = false;
+        replier.reply("정답입니다! '" + game.targetChar + "'의 위치는 " + correctIndex + "번째입니다.");
+        game.gameActive = false;
     } else {
         replier.reply("틀렸습니다. 다시 시도해보세요.");
     }
