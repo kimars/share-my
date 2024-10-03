@@ -30,7 +30,7 @@ function response(room, msg, sender, isGroupChat, replier) {
 
     var game = games[room];
 
-    if (msg === "!인덱싱게임") {
+    if (msg === "!인덱스게임") {
         startGame(room, replier);
     } else if (game.gameActive) {
         checkAnswer(room, msg, replier);
