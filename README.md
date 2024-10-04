@@ -1,34 +1,23 @@
-END USER LICENSE AGREEMENT (EULA)
+# End-User License Agreement
 
-This End-User License Agreement ("EULA") is a legal agreement between you and [kimmars] for the software product [kimmars] ("Software").
+This End-User License Agreement (EULA) is a legal agreement between you (either as an individual or on behalf of an entity) and GitHub, Inc. regarding your use of GitHub's desktop applications, including GitHub Desktop (TM) for Mac and Windows and associated documentation (the "Software"). IF YOU DO NOT AGREE TO ALL OF THE TERMS OF THIS EULA, DO NOT INSTALL, USE OR COPY THE SOFTWARE.
 
-By installing, copying, or otherwise using the Software, you agree to be bound by the terms of this EULA. If you do not agree to the terms of this EULA, do not install or use the Software.
+## Summary
 
-1. LICENSE GRANT
-[korea] grants you a non-exclusive, non-transferable license to use the Software.
+You must agree to all of the terms of this EULA to use this Software.
 
-2. RESTRICTIONS
-You may not:
-(a) Copy, distribute, or modify the Software
-(b) Reverse engineer, decompile, or disassemble the Software
-(c) Remove any copyright or other proprietary notices from the Software
+If so, you may use the Software for free and for any lawful purpose.
 
-3. OWNERSHIP
-The Software is owned by [kimmars] and is protected by copyright laws and international treaty provisions.
+This Software automatically communicates with GitHub servers for three reasons: (1) to receive and install updates; (2) to send error reports; and (3) to send anonymized usage information. You can view sample data to see what information is sent, and you may opt out of sending the anonymized usage data.
 
-4. WARRANTY DISCLAIMER
-The Software is provided "AS IS" without warranty of any kind.
+This Software is provided "as-is" with no warranties, and you agree that GitHub is not liable for anything you do with it.
 
-5. LIMITATION OF LIABILITY
-In no event shall [kimmars] be liable for any damages arising out of the use or inability to use the Software.
+You really ought to just go ahead and read the whole EULA. It's not all that long. You should not only rely on this summary.
 
-6. TERMINATION
-This EULA terminates automatically if you fail to comply with its terms and conditions.
+## The Agreement
 
-7. GOVERNING LAW
-This EULA shall be governed by the laws of [korea/daugu].
+By downloading, installing, using, or copying the Software, you accept and agree to be bound by the terms of this EULA. If you do not agree to all of the terms of this EULA, you may not download, install, use or copy the Software.
 
-By installing or using the Software, you acknowledge that you have read this EULA, understand it, and agree to be bound by its terms and conditions.
+## The License
 
-[kimmars]
-[2024 - 10 - 04]
+This EULA entitles you to install as many copies of the Software as you want, and use the Software for any lawful purpose consistent with this EULA. Your license to use the Software is expressly conditioned upon your agreement to all of the terms of this EULA. This software is licensed, not sold. GitHub reserves all other rights not granted by this EULA.
