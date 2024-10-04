@@ -1,0 +1,266 @@
+const FileStream = java.io.FileStream;
+const File = java.io.File;
+
+var MINERALS = [
+    {name: "돌", rarity: 0.2, value: 1},
+    {name: "석탄", rarity: 0.18, value: 10},
+    {name: "구리", rarity: 0.15, value: 20},
+    {name: "철광석", rarity: 0.12, value: 30},
+    {name: "은광석", rarity: 0.1, value: 50},
+    {name: "금광석", rarity: 0.08, value: 100},
+    {name: "청금석", rarity: 0.06, value: 150},
+    {name: "에메랄드", rarity: 0.04, value: 300},
+    {name: "루비", rarity: 0.03, value: 500},
+    {name: "사파이어", rarity: 0.02, value: 700},
+    {name: "다이아몬드", rarity: 0.01, value: 1000},
+    {name: "흑요석", rarity: 0.005, value: 1500},
+    {name: "미스릴", rarity: 0.003, value: 2000},
+    {name: "오리할콘", rarity: 0.002, value: 3000},
+    {name: "아다만타이트", rarity: 0.001, value: 5000},
+    {name: "용의 결정", rarity: 0.0005, value: 10000}
+];
+
+var TOOLS = [
+    {name: "나무 곡괭이", price: 0, efficiency: 1, durability: 50},
+    {name: "돌 곡괭이", price: 100, efficiency: 1.2, durability: 100},
+    {name: "구리 곡괭이", price: 500, efficiency: 1.5, durability: 200},
+    {name: "철 곡괭이", price: 1000, efficiency: 2, durability: 350},
+    {name: "은 곡괭이", price: 2000, efficiency: 2.5, durability: 500},
+    {name: "금 곡괭이", price: 5000, efficiency: 3, durability: 300},
+    {name: "다이아몬드 곡괭이", price: 10000, efficiency: 4, durability: 1000},
+    {name: "미스릴 곡괭이", price: 20000, efficiency: 5, durability: 2000},
+    {name: "오리할콘 곡괭이", price: 50000, efficiency: 7, durability: 5000},
+    {name: "아다만타이트 곡괭이", price: 100000, efficiency: 10, durability: 10000},
+    {name: "드래곤 곡괭이", price: 500000, efficiency: 20, durability: 50000}
+];
+
+var players = loadData();
+
+function saveData() {
+    var file = new File(android.os.Environment.getExternalStorageDirectory() + "/mining_game_data.json");
+    var fos = new FileOutputStream(file);
+    var contentString = JSON.stringify(players);
+    fos.write(new java.lang.String(contentString).getBytes());
+    fos.close();
+}
+
+function loadData() {
+    var file = new File(android.os.Environment.getExternalStorageDirectory() + "/mining_game_data.json");
+    if (!file.exists()) {
+        return {};
+    }
+    var fis = new FileInputStream(file);
+    var buffer = new java.io.BufferedReader(new java.io.InputStreamReader(fis));
+    var contentString = "";
+    var line;
+    while ((line = buffer.readLine()) !== null) {
+        contentString += line;
+    }
+    fis.close();
+    return JSON.parse(contentString);
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+    var command = msg.split(" ")[0];
+    switch(command) {
+        case "!광질":
+            handleMining(sender, replier);
+            break;
+        case "!인벤토리":
+            showInventory(sender, replier);
+            break;
+        case "!상점":
+            showShop(sender, replier);
+            break;
+        case "!판매":
+            sellAllMinerals(sender, replier);
+            break;
+        case "!업그레이드":
+            upgradeTool(sender, replier);
+            break;
+        case "!수리":
+            repairTool(sender, replier);
+            break;
+        case "!랭킹":
+            showRanking(replier);
+            break;
+        case "!도움말":
+            showHelp(replier);
+            break;
+    }
+    saveData(); // 모든 명령어 실행 후 데이터 저장
+}
+
+function handleMining(player, replier) {
+    initializePlayerIfNeeded(player);
+    
+    var playerData = players[player];
+    if (playerData.tool.currentDurability <= 0) {
+        replier.reply(player + "님, 곡괭이가 망가졌습니다. 수리가 필요합니다!");
+        return;
+    }
+    
+    var mineChance = Math.random() * playerData.tool.efficiency;
+    var minedMineral = null;
+    
+    for (var i = 0; i < MINERALS.length; i++) {
+        if (mineChance <= MINERALS[i].rarity) {
+            minedMineral = MINERALS[i];
+            break;
+        }
+        mineChance -= MINERALS[i].rarity;
+    }
+    
+    if (minedMineral) {
+        playerData.inventory[minedMineral.name] = (playerData.inventory[minedMineral.name] || 0) + 1;
+        playerData.tool.currentDurability--;
+        replier.reply(player + "님이 " + minedMineral.name + "을(를) 채굴했습니다! (남은 내구도: " + playerData.tool.currentDurability + ")");
+    } else {
+        playerData.tool.currentDurability--;
+        replier.reply(player + "님, 이런... 아무것도 발견하지 못했습니다. 다시 시도해보세요! (남은 내구도: " + playerData.tool.currentDurability + ")");
+    }
+}
+
+function showInventory(player, replier) {
+    if (!players[player]) {
+        replier.reply("아직 광질을 하지 않으셨습니다.");
+        return;
+    }
+    
+    var playerData = players[player];
+    var message = player + "님의 인벤토리:\n";
+    for (var mineral in playerData.inventory) {
+        message += mineral + ": " + playerData.inventory[mineral] + "개\n";
+    }
+    message += "보유 금액: " + playerData.money + "골드\n";
+    message += "현재 도구: " + playerData.tool.name + " (내구도: " + playerData.tool.currentDurability + "/" + playerData.tool.durability + ")";
+    replier.reply(message);
+}
+
+function showShop(player, replier) {
+    var message = "광물 판매 가격:\n";
+    for (var i = 0; i < MINERALS.length; i++) {
+        message += MINERALS[i].name + ": " + MINERALS[i].value + "골드\n";
+    }
+    message += "\n도구 업그레이드:\n";
+    for (var j = 0; j < TOOLS.length; j++) {
+        message += TOOLS[j].name + ": " + TOOLS[j].price + "골드 (효율 x" + TOOLS[j].efficiency + ", 내구도 " + TOOLS[j].durability + ")\n";
+    }
+    replier.reply(message);
+}
+
+function sellAllMinerals(player, replier) {
+    if (!players[player]) {
+        replier.reply("판매할 광물이 없습니다.");
+        return;
+    }
+    
+    var playerData = players[player];
+    var totalValue = 0;
+    var soldItems = [];
+    
+    for (var mineralName in playerData.inventory) {
+        var mineral = MINERALS.find(function(m) { return m.name === mineralName; });
+        if (mineral) {
+            var quantity = playerData.inventory[mineralName];
+            var value = mineral.value * quantity;
+            totalValue += value;
+            soldItems.push(mineralName + " " + quantity + "개");
+        }
+    }
+    
+    playerData.money += totalValue;
+    playerData.inventory = {};
+    
+    replier.reply(player + "님이 다음 광물을 판매했습니다:\n" + soldItems.join(", ") + "\n총 " + totalValue + "골드를 얻었습니다.");
+}
+
+function upgradeTool(player, replier) {
+    initializePlayerIfNeeded(player);
+    var playerData = players[player];
+    var nextToolIndex = TOOLS.findIndex(function(tool) { return tool.name === playerData.tool.name; }) + 1;
+    
+    if (nextToolIndex >= TOOLS.length) {
+        replier.reply("이미 최고 등급의 도구를 사용 중입니다.");
+        return;
+    }
+    
+    var nextTool = TOOLS[nextToolIndex];
+    if (playerData.money < nextTool.price) {
+        replier.reply("골드가 부족합니다. 필요 골드: " + nextTool.price);
+        return;
+    }
+    
+    playerData.money -= nextTool.price;
+    playerData.tool = {
+        name: nextTool.name,
+        efficiency: nextTool.efficiency,
+        durability: nextTool.durability,
+        currentDurability: nextTool.durability
+    };
+    replier.reply(player + "님이 " + nextTool.name + "(으)로 업그레이드했습니다!");
+}
+
+function repairTool(player, replier) {
+    initializePlayerIfNeeded(player);
+    var playerData = players[player];
+    var repairCost = Math.floor((playerData.tool.durability - playerData.tool.currentDurability) * 10);
+    
+    if (playerData.tool.currentDurability === playerData.tool.durability) {
+        replier.reply("도구가 이미 완전한 상태입니다.");
+        return;
+    }
+    
+    if (playerData.money < repairCost) {
+        replier.reply("수리 비용이 부족합니다. 필요 골드: " + repairCost);
+        return;
+    }
+    
+    playerData.money -= repairCost;
+    playerData.tool.currentDurability = playerData.tool.durability;
+    replier.reply(player + "님의 " + playerData.tool.name + "을(를) 수리했습니다. 비용: " + repairCost + "골드");
+}
+
+function showRanking(replier) {
+    var ranking = Object.keys(players).map(function(player) {
+        return {name: player, money: players[player].money};
+    }).sort(function(a, b) {
+        return b.money - a.money;
+    }).slice(0, 5);
+    
+    var message = "광부 랭킹 (상위 5명):\n";
+    ranking.forEach(function(player, index) {
+        message += (index + 1) + ". " + player.name + ": " + player.money + "골드\n";
+    });
+    
+    replier.reply(message);
+}
+
+function initializePlayerIfNeeded(player) {
+    if (!players[player]) {
+        players[player] = {
+            inventory: {},
+            money: 0,
+            tool: {
+                name: TOOLS[0].name,
+                efficiency: TOOLS[0].efficiency,
+                durability: TOOLS[0].durability,
+                currentDurability: TOOLS[0].durability
+            }
+        };
+        saveData(); // 새 플레이어 초기화 후 데이터 저장
+    }
+}
+
+function showHelp(replier) {
+    var helpMessage = "광질 게임 명령어:\n" +
+        "!광질 - 광물을 채굴합니다.\n" +
+        "!인벤토리 - 보유한 광물과 골드를 확인합니다.\n" +
+        "!상점 - 광물 가격과 도구 정보를 확인합니다.\n" +
+        "!판매 - 모든 광물을 판매합니다.\n" +
+        "!업그레이드 - 도구를 업그레이드합니다.\n" +
+        "!수리 - 도구를 수리합니다.\n" +
+        "!랭킹 - 상위 5명의 랭킹을 확인합니다.\n" +
+        "!도움말 - 이 도움말을 표시합니다.";
+    replier.reply(helpMessage);
+}
