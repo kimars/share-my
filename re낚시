@@ -1,0 +1,205 @@
+var FISH_TYPES = [
+    {name: "멸치", rarity: 0.1, value: 10},
+    {name: "고등어", rarity: 0.09, value: 30},
+    {name: "꽁치", rarity: 0.09, value: 25},
+    {name: "갈치", rarity: 0.08, value: 40},
+    {name: "참치", rarity: 0.07, value: 50},
+    {name: "연어", rarity: 0.07, value: 60},
+    {name: "농어", rarity: 0.06, value: 70},
+    {name: "방어", rarity: 0.06, value: 80},
+    {name: "돔", rarity: 0.05, value: 90},
+    {name: "광어", rarity: 0.05, value: 100},
+    {name: "우럭", rarity: 0.04, value: 110},
+    {name: "대구", rarity: 0.04, value: 120},
+    {name: "민어", rarity: 0.03, value: 130},
+    {name: "복어", rarity: 0.03, value: 140},
+    {name: "상어", rarity: 0.02, value: 200},
+    {name: "가오리", rarity: 0.02, value: 180},
+    {name: "참돔", rarity: 0.02, value: 170},
+    {name: "노래미", rarity: 0.02, value: 160},
+    {name: "황금문어", rarity: 0.01, value: 500},
+    {name: "은갈치", rarity: 0.01, value: 450},
+    {name: "용궁의 진주", rarity: 0.005, value: 1000},
+    {name: "인어의 눈물", rarity: 0.005, value: 1500}
+];
+
+var LOCATIONS = [
+    "얕은 바다", "깊은 바다", "산호초", "빙하 지대", "열대 해변",
+    "강 하구", "맹그로브 숲", "암초 지대", "해저 동굴", "난파선 주변",
+    "화산 인근 해역", "대륙붕", "심해", "조류 서식지", "해조 숲"
+];
+
+var ROD_TYPES = [
+    {name: "초보자 낚싯대", price: 0, catchBonus: 1},
+    {name: "대나무 낚싯대", price: 500, catchBonus: 1.1},
+    {name: "유리섬유 낚싯대", price: 1000, catchBonus: 1.2},
+    {name: "카본 낚싯대", price: 2000, catchBonus: 1.3},
+    {name: "합금 낚싯대", price: 3500, catchBonus: 1.4},
+    {name: "티타늄 낚싯대", price: 5000, catchBonus: 1.5},
+    {name: "마법의 낚싯대", price: 10000, catchBonus: 1.7},
+    {name: "용의 비늘 낚싯대", price: 20000, catchBonus: 2},
+    {name: "포세이돈의 삼지창", price: 50000, catchBonus: 2.5},
+    {name: "운명의 낚싯대", price: 100000, catchBonus: 3}
+];
+
+var players = {};
+
+function response(room, msg, sender, isGroupChat, replier) {
+    var command = msg.split(" ")[0];
+    switch(command) {
+        case "!낚시":
+            handleFishing(sender, replier);
+            break;
+        case "!인벤토리":
+            showInventory(sender, replier);
+            break;
+        case "!상점":
+            showShop(sender, replier);
+            break;
+        case "!판매":
+            sellFish(sender, msg.split(" ")[1], replier);
+            break;
+        case "!업그레이드":
+            upgradeRod(sender, replier);
+            break;
+        case "!일일보상":
+            dailyReward(sender, replier);
+            break;
+        case "!도움말":
+            showHelp(replier);
+            break;
+    }
+}
+
+function handleFishing(player, replier) {
+    initializePlayerIfNeeded(player);
+    
+    var playerData = players[player];
+    var location = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+    var catchChance = Math.random() * playerData.rod.catchBonus;
+    var caughtFish = null;
+    
+    for (var i = 0; i < FISH_TYPES.length; i++) {
+        if (catchChance <= FISH_TYPES[i].rarity) {
+            caughtFish = FISH_TYPES[i];
+            break;
+        }
+        catchChance -= FISH_TYPES[i].rarity;
+    }
+    
+    if (caughtFish) {
+        playerData.inventory[caughtFish.name] = (playerData.inventory[caughtFish.name] || 0) + 1;
+        replier.reply(player + "님이 " + location + "에서 " + caughtFish.name + "을(를) 잡았습니다!");
+    } else {
+        replier.reply(player + "님, 아쉽게도 물고기를 놓쳤습니다. 다음에 다시 도전해보세요!");
+    }
+}
+
+function showInventory(player, replier) {
+    if (!players[player]) {
+        replier.reply("아직 낚시를 하지 않으셨습니다.");
+        return;
+    }
+    
+    var playerData = players[player];
+    var message = player + "님의 인벤토리:\n";
+    for (var fish in playerData.inventory) {
+        message += fish + ": " + playerData.inventory[fish] + "마리\n";
+    }
+    message += "보유 금액: " + playerData.money + "골드\n";
+    message += "현재 낚싯대: " + playerData.rod.name;
+    replier.reply(message);
+}
+
+function showShop(player, replier) {
+    var message = "상점 물고기 가격:\n";
+    for (var i = 0; i < FISH_TYPES.length; i++) {
+        message += FISH_TYPES[i].name + ": " + FISH_TYPES[i].value + "골드\n";
+    }
+    message += "\n낚싯대 업그레이드:\n";
+    for (var j = 0; j < ROD_TYPES.length; j++) {
+        message += ROD_TYPES[j].name + ": " + ROD_TYPES[j].price + "골드 (성능 +" + (ROD_TYPES[j].catchBonus * 100 - 100) + "%)\n";
+    }
+    replier.reply(message);
+}
+
+function sellFish(player, fishName, replier) {
+    if (!players[player] || !players[player].inventory[fishName]) {
+        replier.reply("해당 물고기를 보유하고 있지 않습니다.");
+        return;
+    }
+    
+    var fish = FISH_TYPES.find(function(f) { return f.name === fishName; });
+    if (!fish) {
+        replier.reply("올바른 물고기 이름을 입력해주세요.");
+        return;
+    }
+    
+    var quantity = players[player].inventory[fishName];
+    var totalValue = fish.value * quantity;
+    
+    players[player].money += totalValue;
+    delete players[player].inventory[fishName];
+    
+    replier.reply(player + "님이 " + fishName + " " + quantity + "마리를 판매하여 " + totalValue + "골드를 얻었습니다.");
+}
+
+function upgradeRod(player, replier) {
+    initializePlayerIfNeeded(player);
+    var playerData = players[player];
+    var nextRodIndex = ROD_TYPES.findIndex(function(rod) { return rod.name === playerData.rod.name; }) + 1;
+    
+    if (nextRodIndex >= ROD_TYPES.length) {
+        replier.reply("이미 최고 등급의 낚싯대를 사용 중입니다.");
+        return;
+    }
+    
+    var nextRod = ROD_TYPES[nextRodIndex];
+    if (playerData.money < nextRod.price) {
+        replier.reply("골드가 부족합니다. 필요 골드: " + nextRod.price);
+        return;
+    }
+    
+    playerData.money -= nextRod.price;
+    playerData.rod = nextRod;
+    replier.reply(player + "님이 " + nextRod.name + "로 업그레이드했습니다!");
+}
+
+function dailyReward(player, replier) {
+    initializePlayerIfNeeded(player);
+    var playerData = players[player];
+    var now = new Date().getTime();
+    
+    if (now - playerData.lastRewardTime < 24 * 60 * 60 * 1000) {
+        replier.reply("일일 보상은 24시간마다 받을 수 있습니다.");
+        return;
+    }
+    
+    var reward = 100 + Math.floor(Math.random() * 100);
+    playerData.money += reward;
+    playerData.lastRewardTime = now;
+    replier.reply(player + "님이 일일 보상으로 " + reward + "골드를 받았습니다!");
+}
+
+function initializePlayerIfNeeded(player) {
+    if (!players[player]) {
+        players[player] = {
+            inventory: {},
+            money: 0,
+            rod: ROD_TYPES[0],
+            lastRewardTime: 0
+        };
+    }
+}
+
+function showHelp(replier) {
+    var helpMessage = "낚시 게임 명령어:\n" +
+        "!낚시 - 물고기를 낚습니다.\n" +
+        "!인벤토리 - 보유한 물고기와 골드를 확인합니다.\n" +
+        "!상점 - 물고기 가격과 낚싯대 정보를 확인합니다.\n" +
+        "!판매 [물고기이름] - 특정 물고기를 판매합니다.\n" +
+        "!업그레이드 - 낚싯대를 업그레이드합니다.\n" +
+        "!일일보상 - 일일 보상을 받습니다.\n" +
+        "!도움말 - 이 도움말을 표시합니다.";
+    replier.reply(helpMessage);
+}
