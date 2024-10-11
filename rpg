@@ -1,0 +1,861 @@
+var gameData = {
+    players: [],
+    items: [],
+    quests: [],
+    monsters: [],
+    bosses: [],
+    skills: [],
+    dungeons: []
+};
+
+function addPlayer(name) {
+    var existingPlayer = getPlayer(name);
+    if (existingPlayer) {
+        return existingPlayer;
+    }
+    var newPlayer = {
+        name: name,
+        level: 1,
+        exp: 0,
+        maxHp: 100,
+        hp: 100,
+        mp: 50,
+        maxMp: 50,
+        attack: 10,
+        defense: 5,
+        gold: 0,
+        inventory: [],
+        equipment: {
+            weapon: null,
+            armor: null,
+            accessory: null
+        },
+        skills: [],
+        completedQuests: []
+    };
+    gameData.players.push(newPlayer);
+    return newPlayer;
+}
+
+function getPlayer(name) {
+    return gameData.players.find(function(p) { return p.name === name; });
+}
+
+function addItem(name, description, effect, type) {
+    var newItem = {
+        name: name,
+        description: description,
+        effect: effect,
+        type: type
+    };
+    gameData.items.push(newItem);
+    return newItem;
+}
+
+function addMonster(name, hp, attack, defense, expReward, goldReward) {
+    var newMonster = {
+        name: name,
+        hp: hp,
+        attack: attack,
+        defense: defense,
+        expReward: expReward,
+        goldReward: goldReward
+    };
+    gameData.monsters.push(newMonster);
+    return newMonster;
+}
+
+function addBoss(name, hp, attack, defense, expReward, goldReward, specialAbility, specialWeapon) {
+    var newBoss = {
+        name: name,
+        hp: hp,
+        attack: attack,
+        defense: defense,
+        expReward: expReward,
+        goldReward: goldReward,
+        specialAbility: specialAbility,
+        specialWeapon: specialWeapon
+    };
+    gameData.bosses.push(newBoss);
+    return newBoss;
+}
+
+function addQuest(title, description, rewardExp, rewardGold, requiredLevel, requiredKills) {
+    var newQuest = {
+        title: title,
+        description: description,
+        rewardExp: rewardExp,
+        rewardGold: rewardGold,
+        requiredLevel: requiredLevel,
+        requiredKills: requiredKills
+    };
+    gameData.quests.push(newQuest);
+    return newQuest;
+}
+
+function addSkill(name, description, mpCost, damage, type) {
+    var newSkill = {
+        name: name,
+        description: description,
+        mpCost: mpCost,
+        damage: damage,
+        type: type
+    };
+    gameData.skills.push(newSkill);
+    return newSkill;
+}
+
+function levelUp(player) {
+    player.level++;
+    player.maxHp += 20;
+    player.hp = player.maxHp;
+    player.maxMp += 10;
+    player.mp = player.maxMp;
+    player.attack += 5;
+    player.defense += 2;
+}
+
+function gainExp(player, exp) {
+    player.exp += exp;
+    while (player.exp >= player.level * 100) {
+        player.exp -= player.level * 100;
+        levelUp(player);
+    }
+}
+
+function buyItem(player, itemName) {
+    var item = gameData.items.find(function(i) { return i.name === itemName; });
+    if (item && player.gold >= item.effect.price) {
+        player.gold -= item.effect.price;
+        player.inventory.push(item);
+        return true;
+    }
+    return false;
+}
+
+function useItem(player, itemName) {
+    var itemIndex = player.inventory.findIndex(function(i) { return i.name === itemName; });
+    if (itemIndex !== -1) {
+        var item = player.inventory[itemIndex];
+        if (item.effect.heal) {
+            player.hp = Math.min(player.maxHp, player.hp + item.effect.heal);
+        }
+        if (item.effect.mpRestore) {
+            player.mp = Math.min(player.maxMp, player.mp + item.effect.mpRestore);
+        }
+        if (item.effect.attackBoost) {
+            player.attack += item.effect.attackBoost;
+        }
+        if (item.effect.defenseBoost) {
+            player.defense += item.effect.defenseBoost;
+        }
+        player.inventory.splice(itemIndex, 1);
+        return true;
+    }
+    return false;
+}
+
+function equipItem(player, itemName) {
+    var item = player.inventory.find(function(i) { return i.name === itemName; });
+    if (item && (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory')) {
+        if (player.equipment[item.type]) {
+            unequipItem(player, item.type);
+        }
+        player.equipment[item.type] = item;
+        player.inventory = player.inventory.filter(function(i) { return i.name !== itemName; });
+        if (item.effect.attackBoost) player.attack += item.effect.attackBoost;
+        if (item.effect.defenseBoost) player.defense += item.effect.defenseBoost;
+        return true;
+    }
+    return false;
+}
+
+function unequipItem(player, itemType) {
+    if (player.equipment[itemType]) {
+        var item = player.equipment[itemType];
+        player.inventory.push(item);
+        if (item.effect.attackBoost) player.attack -= item.effect.attackBoost;
+        if (item.effect.defenseBoost) player.defense -= item.effect.defenseBoost;
+        player.equipment[itemType] = null;
+        return true;
+    }
+    return false;
+}
+
+function learnSkill(player, skillName) {
+    var skill = gameData.skills.find(function(s) { return s.name === skillName; });
+    if (skill && !player.skills.some(function(s) { return s.name === skillName; })) {
+        player.skills.push(skill);
+        return true;
+    }
+    return false;
+}
+
+function useSkill(player, skillName, target) {
+    var skill = player.skills.find(function(s) { return s.name === skillName; });
+    if (skill && player.mp >= skill.mpCost) {
+        player.mp -= skill.mpCost;
+        var damage = skill.damage;
+        if (skill.type === 'magic') {
+            damage += Math.floor(player.level * 0.5);
+        }
+        if (skill.type === 'heal') {
+            player.hp = Math.min(player.maxHp, player.hp - damage);
+            return -damage;
+        } else {
+            target.hp -= Math.max(0, damage - target.defense);
+            return damage;
+        }
+    }
+    return 0;
+}
+
+function battle(player, enemyName, isBoss) {
+    var enemy = isBoss ? 
+        gameData.bosses.find(function(b) { return b.name === enemyName; }) :
+        gameData.monsters.find(function(m) { return m.name === enemyName; });
+    if (!enemy) return "적을 찾을 수 없습니다.";
+
+    var enemyHp = enemy.hp;
+    var battleLog = "⚔️ " + player.name + "와 " + enemy.name + "의 전투 시작! ⚔️\n";
+
+    while (player.hp > 0 && enemyHp > 0) {
+        // 플레이어 턴
+        battleLog += "\n🧙 " + player.name + "의 턴!\n";
+        var action = Math.random() < 0.7 ? "attack" : "skill";
+        if (action === "attack") {
+            var playerDamage = Math.max(0, player.attack - enemy.defense);
+            enemyHp -= playerDamage;
+            battleLog += "🗡️ " + player.name + "의 공격! " + enemy.name + "에게 " + playerDamage + "의 데미지를 입혔습니다.\n";
+        } else if (player.skills.length > 0) {
+            var randomSkill = player.skills[Math.floor(Math.random() * player.skills.length)];
+            var skillDamage = useSkill(player, randomSkill.name, enemy);
+            if (skillDamage !== 0) {
+                if (skillDamage < 0) {
+                    battleLog += "✨ " + player.name + "의 " + randomSkill.name + "! HP를 " + (-skillDamage) + " 회복했습니다.\n";
+                } else {
+                    enemyHp -= skillDamage;
+                    battleLog += "✨ " + player.name + "의 " + randomSkill.name + "! " + enemy.name + "에게 " + skillDamage + "의 데미지를 입혔습니다.\n";
+                }
+            } else {
+                battleLog += "😓 MP가 부족하여 스킬 사용에 실패했습니다.\n";
+            }
+        }
+
+        if (enemyHp <= 0) break;
+
+        // 적 턴
+        battleLog += "\n👹 " + enemy.name + "의 턴!\n";
+        var enemyDamage = Math.max(0, enemy.attack - player.defense);
+        player.hp -= enemyDamage;
+        battleLog += "💥 " + enemy.name + "의 공격! " + player.name + "에게 " + enemyDamage + "의 데미지를 입혔습니다.\n";
+
+        if (isBoss && enemy.specialAbility && Math.random() < 0.3) {
+            var specialDamage = Math.floor(enemy.attack * 1.5);
+            player.hp -= specialDamage;
+            battleLog += "🌟 " + enemy.name + "의 특수 능력 " + enemy.specialAbility + "! " + player.name + "에게 " + specialDamage + "의 데미지를 입혔습니다.\n";
+        }
+    }
+
+    if (player.hp > 0) {
+        battleLog += "\n🎉 " + player.name + "가 승리했습니다!\n";
+        player.gold += enemy.goldReward;
+        gainExp(player, enemy.expReward);
+        battleLog += "💰 " + enemy.expReward + "의 경험치와 " + enemy.goldReward + "골드를 획득했습니다.\n";
+        battleLog += "현재 레벨: " + player.level + ", 경험치: " + player.exp + "/" + (player.level * 100) + "\n";
+
+        if (isBoss && enemy.specialWeapon) {
+            var weaponDropChance = Math.random();
+            if (weaponDropChance < 0.3) {  // 30% 확률로 무기 드롭
+                player.inventory.push(enemy.specialWeapon);
+                battleLog += "🎁 축하합니다! " + enemy.name + "에게서 " + enemy.specialWeapon.name + "을(를) 획득했습니다!\n";
+            }
+        }
+    } else {
+        battleLog += "\n💀 " + player.name + "가 패배했습니다.\n";
+        player.hp = Math.max(1, Math.floor(player.maxHp * 0.1));  // 최대 HP의 10%로 부활
+        player.gold = Math.floor(player.gold * 0.9);  // 골드의 10% 손실
+        battleLog += "😢 패배로 인해 골드의 10%를 잃었습니다. 현재 골드: " + player.gold + "\n";
+        battleLog += "🏥 " + player.name + "는 마을로 귀환하여 회복했습니다. 현재 HP: " + player.hp + "\n";
+    }
+
+    return battleLog;
+}
+
+function completeQuest(player, questTitle) {
+    var quest = gameData.quests.find(function(q) { return q.title === questTitle; });
+    if (quest && !player.completedQuests.includes(questTitle) && player.level >= quest.requiredLevel) {
+        player.completedQuests.push(questTitle);
+        player.gold += quest.rewardGold;
+        gainExp(player, quest.rewardExp);
+        return "🏆 퀘스트 '" + questTitle + "'을(를) 완료했습니다! 보상: " + quest.rewardExp + " 경험치, " + quest.rewardGold + " 골드";
+    }
+    return "❌ 해당 퀘스트를 완료할 수 없습니다. 레벨이 부족하거나 이미 완료한 퀘스트입니다.";
+}
+
+function enhanceEquipment(player, itemName) {
+    var item = player.inventory.find(i => i.name === itemName);
+    if (item && item.type === "weapon" || item.type === "armor") {
+        var enhanceCost = Math.floor(item.effect.price * 0.1);
+        if (player.gold >= enhanceCost) {
+            player.gold -= enhanceCost;
+            if (item.type === "weapon") {
+                item.effect.attackBoost += Math.floor(item.effect.attackBoost * 0.1);
+            } else {
+                item.effect.defenseBoost += Math.floor(item.effect.defenseBoost * 0.1);
+            }
+            return "강화 성공! " + itemName + "의 성능이 10% 향상되었습니다.";
+        }
+        return "골드가 부족합니다.";
+    }
+    return "강화할 수 없는 아이템입니다.";
+}
+
+function createDungeon(name, minLevel, maxLevel, stages) {
+    var newDungeon = {
+        name: name,
+        minLevel: minLevel,
+        maxLevel: maxLevel,
+        stages: stages
+    };
+    gameData.dungeons.push(newDungeon);
+    return newDungeon;
+}
+function enterDungeon(player, dungeonName) {
+    var dungeon = gameData.dungeons.find(d => d.name === dungeonName);
+    if (!dungeon) return "해당 던전을 찾을 수 없습니다.";
+    if (player.level < dungeon.minLevel) {
+        return "레벨이 부족하여 입장할 수 없습니다.";
+    }
+    var log = player.name + "이(가) " + dungeon.name + "에 입장했습니다!\n";
+    for (var i = 0; i < dungeon.stages.length; i++) {
+        log += "\n===== " + (i+1) + "단계 =====\n";
+        var result = battle(player, dungeon.stages[i], false);
+        log += result;
+        if (player.hp <= 0) {
+            log += "\n던전 탐험 실패...";
+            return log;
+        }
+    }
+    log += "\n던전 클리어! 축하합니다!";
+    return log;
+}
+
+function randomEvent(player) {
+    var events = [
+        {name: "보물 상자 발견", effect: function(p) { p.gold += 100; return p.name + "이(가) 보물 상자를 발견하여 100골드를 얻었습니다!"; }},
+        {name: "함정에 빠짐", effect: function(p) { p.hp -= 20; return p.name + "이(가) 함정에 빠져 20의 데미지를 입었습니다!"; }},
+        {name: "신비한 샘", effect: function(p) { p.mp += 50; return p.name + "이(가) 신비한 샘을 발견하여 MP가 50 회복되었습니다!"; }},
+        {name: "고대의 책", effect: function(p) { p.exp += 50; return p.name + "이(가) 고대의 책을 읽고 50의 경험치를 얻었습니다!"; }}
+    ];
+    var event = events[Math.floor(Math.random() * events.length)];
+    return event.effect(player);
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+    var commands = msg.split(" ");
+    var command = commands[0];
+    switch(command) {
+        case "!캐릭터생성":
+            var player = addPlayer(sender);
+            replier.reply("🎭 " + sender + "님의 캐릭터가 생성되었습니다!\n레벨: " + player.level + "\nHP: " + player.hp + "/" + player.maxHp + "\nMP: " + player.mp + "/" + player.maxMp);
+            break;
+            
+        case "관리자":
+          var player = getPlayer(sender);
+          if (player) {
+            var amount = parseInt(commands[1]) || 10000000000000;  // 기본값 1000
+             player.gold += amount;
+               replier.reply(sender + "님의 골드가 " + amount + " 증가했습니다. 현재 골드: " + player.gold);
+    } else {
+        replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+    }
+    break;
+    
+        case "!상태확인":
+            var player = getPlayer(sender);
+            if (player) {
+                var status = "📊 " + sender + "님의 상태:\n" +
+                             "레벨: " + player.level + "\n" +
+                             "경험치: " + player.exp + "/" + (player.level * 100) + "\n" +
+                             "HP: " + player.hp + "/" + player.maxHp + "\n" +
+                             "MP: " + player.mp + "/" + player.maxMp + "\n" +
+                             "공격력: " + player.attack + "\n" +
+                             "방어력: " + player.defense + "\n" +
+                             "골드: " + player.gold;
+                replier.reply(status);
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!전투":
+            var player = getPlayer(sender);
+            if (player) {
+                var enemyName = commands[1];
+                if (enemyName) {
+                    var result = battle(player, enemyName, false);
+                    replier.reply(result);
+                } else {
+                    var monsters = gameData.monsters;
+                    var monsterList = monsters.map(function(m) {
+                        return "🐾 " + m.name + " (HP: " + m.hp + ", 공격력: " + m.attack + ")";
+                    }).join("\n");
+                    replier.reply("전투 가능한 몬스터 목록:\n" + monsterList + "\n\n전투하려면 '!전투 몬스터이름'을 입력하세요." + ' '.repeat(500));
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!보스전투":
+            var player = getPlayer(sender);
+            if (player) {
+                var bossName = commands.slice(1).join(" ");
+                if (bossName) {
+                    var result = battle(player, bossName, true);
+                    replier.reply(result);
+                } else {
+                    var bosses = gameData.bosses;
+                    var bossList = bosses.map(function(b) {
+                        return "\n\n" + b.name + " (HP: " + b.hp + ", 공격력: " + b.attack + ", 특수능력: " + b.specialAbility + ")";
+                    }).join("\n");
+                    replier.reply("전투 가능한 보스 목록:\n" + bossList + "\n\n보스와 전투하려면 '!보스전투 보스이름'을 입력하세요." + ' '.repeat(500));
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!아이템구매":
+            var player = getPlayer(sender);
+            if (player) {
+                var itemName = commands.slice(1).join(" ");
+                if (itemName) {
+                    var success = buyItem(player, itemName);
+                    if (success) {
+                        replier.reply("🛒 " + itemName + "을(를) 구매했습니다.");
+                    } else {
+                        replier.reply("❌ 아이템 구매에 실패했습니다. 골드가 부족하거나 해당 아이템이 없습니다.");
+                    }
+                } else {
+                    replier.reply("❓ 구매할 아이템 이름을 입력해주세요.");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!아이템사용":
+            var player = getPlayer(sender);
+            if (player) {
+                var itemName = commands.slice(1).join(" ");
+                if (itemName) {
+                    var success = useItem(player, itemName);
+                    if (success) {
+                        replier.reply("✨ " + itemName + "을(를) 사용했습니다.");
+                    } else {
+                        replier.reply("❌ 아이템 사용에 실패했습니다. 해당 아이템이 인벤토리에 없습니다.");
+                    }
+                } else {
+                    replier.reply("❓ 사용할 아이템 이름을 입력해주세요.");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!장비장착":
+            var player = getPlayer(sender);
+            if (player) {
+                var itemName = commands.slice(1).join(" ");
+                if (itemName) {
+                    var success = equipItem(player, itemName);
+                    if (success) {
+                        replier.reply("🛡️ " + itemName + "을(를) 장착했습니다.");
+                    } else {
+                        replier.reply("❌ 장비 장착에 실패했습니다. 해당 아이템이 인벤토리에 없거나 장착할 수 없는 아이템입니다.");
+                    }
+                } else {
+                    replier.reply("❓ 장착할 아이템 이름을 입력해주세요.");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!장비해제":
+            var player = getPlayer(sender);
+            if (player) {
+                var itemType = commands[1];
+                if (itemType === "무기" || itemType === "방어구" || itemType === "악세서리") {
+                    var success = unequipItem(player, itemType === "무기" ? "weapon" : itemType === "방어구" ? "armor" : "accessory");
+                    if (success) {
+                        replier.reply("🔓 " + itemType + "를 해제했습니다.");
+                    } else {
+                        replier.reply("❌ 장비 해제에 실패했습니다. 해당 부위에 장착된 장비가 없습니다.");
+                    }
+                } else {
+                    replier.reply("❓ 해제할 장비 종류를 입력해주세요. (무기, 방어구, 또는 악세서리)");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!스킬배우기":
+            var player = getPlayer(sender);
+            if (player) {
+                var skillName = commands.slice(1).join(" ");
+                if (skillName) {
+                    var success = learnSkill(player, skillName);
+                    if (success) {
+                        replier.reply("📚 " + skillName + " 스킬을 배웠습니다.");
+                    } else {
+                        replier.reply("❌ 스킬 습득에 실패했습니다. 이미 배운 스킬이거나 존재하지 않는 스킬입니다.");
+                    }
+                } else {
+                    replier.reply("❓ 배울 스킬 이름을 입력해주세요.");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!상점":
+            var items = gameData.items;
+            var itemList = items.map(function(item) {
+                return "\n\n🏷️ " + item.name + " - " + item.description + " (가격: " + item.effect.price + "골드)";
+            }).join("\n");
+            replier.reply("🪙 Mars Rpg 상점\n" + ' '.repeat(500) + "🏪 구매 가능한 아이템 목록\n" + itemList + "\n\n구매하려면 '!아이템구매 아이템이름'을 입력하세요." + ' '.repeat(500));
+            break;
+
+        case "!퀘스트목록":
+            var quests = gameData.quests;
+            var questList = quests.map(function(quest) {
+                return "📜 " + quest.title + " - " + quest.description + " (보상: " + quest.rewardExp + " 경험치, " + quest.rewardGold + " 골드, 필요 레벨: " + quest.requiredLevel + ")";
+            }).join("\n");
+            replier.reply("수행 가능한 퀘스트 목록:\n" + questList + "\n\n퀘스트를 완료하려면 '!퀘스트완료 퀘스트제목'을 입력하세요." + ' '.repeat(500));
+            break;
+
+        case "!퀘스트완료":
+            var player = getPlayer(sender);
+            if (player) {
+                var questTitle = commands.slice(1).join(" ");
+                if (questTitle) {
+                    var result = completeQuest(player, questTitle);
+                    replier.reply(result);
+                } else {
+                    replier.reply("❓ 완료할 퀘스트 제목을 입력해주세요.");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!스킬목록":
+            var player = getPlayer(sender);
+            if (player) {
+                var skillList = player.skills.map(function(skill) {
+                    return "🔮 " + skill.name + " - " + skill.description + " (MP 소모: " + skill.mpCost + ", 데미지: " + skill.damage + ")";
+                }).join("\n");
+                replier.reply(sender + "님의 스킬 목록:\n" + skillList);
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!인벤토리":
+            var player = getPlayer(sender);
+            if (player) {
+                var inventoryList = player.inventory.map(function(item) {
+                    return "🎒 " + item.name + " - " + item.description;
+                }).join("\n");
+                replier.reply(sender + "님의 인벤토리:\n" + inventoryList);
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!장비강화":
+            var player = getPlayer(sender);
+            if (player) {
+                var itemName = commands.slice(1).join(" ");
+                if (itemName) {
+                    var result = enhanceEquipment(player, itemName);
+                    replier.reply(result);
+                } else {
+                    replier.reply("❓ 강화할 장비 이름을 입력해주세요.");
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!던전입장":
+            var player = getPlayer(sender);
+            if (player) {
+                var dungeonName = commands.slice(1).join(" ");
+                if (dungeonName) {
+                    var result = enterDungeon(player, dungeonName);
+                    replier.reply(result);
+                } else {
+function enterDungeon(player, dungeonName) {
+    var dungeon = gameData.dungeons.find(d => d.name === dungeonName);
+    if (!dungeon) return "해당 던전을 찾을 수 없습니다.";
+    if (player.level < dungeon.minLevel) {
+        return "레벨이 부족하여 입장할 수 없습니다.";
+    }
+    var log = player.name + "이(가) " + dungeon.name + "에 입장했습니다!\n";
+    for (var i = 0; i < dungeon.stages.length; i++) {
+        log += "\n===== " + (i+1) + "단계 =====\n";
+        var result = battle(player, dungeon.stages[i], false);
+        log += result;
+        if (player.hp <= 0) {
+            log += "\n던전 탐험 실패...";
+            return log;
+        }
+    }
+    log += "\n던전 클리어! 축하합니다!";
+    return log;
+}
+
+function randomEvent(player) {
+    var events = [
+        {name: "보물 상자 발견", effect: function(p) { p.gold += 100; return p.name + "이(가) 보물 상자를 발견하여 100골드를 얻었습니다!"; }},
+        {name: "함정에 빠짐", effect: function(p) { p.hp -= 20; return p.name + "이(가) 함정에 빠져 20의 데미지를 입었습니다!"; }},
+        {name: "신비한 샘", effect: function(p) { p.mp += 50; return p.name + "이(가) 신비한 샘을 발견하여 MP가 50 회복되었습니다!"; }},
+        {name: "고대의 책", effect: function(p) { p.exp += 50; return p.name + "이(가) 고대의 책을 읽고 50의 경험치를 얻었습니다!"; }}
+    ];
+    var event = events[Math.floor(Math.random() * events.length)];
+    return event.effect(player);
+}
+                    var dungeonList = gameData.dungeons.map(function(d) {
+                        return "🏰 " + d.name + " (필요 레벨: " + d.minLevel + " ~ " + d.maxLevel + ")";
+                    }).join("\n");
+                    replier.reply("입장 가능한 던전 목록:\n" + dungeonList + "\n\n던전에 입장하려면 '!던전입장 던전이름'을 입력하세요." + ' '.repeat(500));
+                }
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!랜덤이벤트":
+            var player = getPlayer(sender);
+            if (player) {
+                var eventResult = randomEvent(player);
+                replier.reply(eventResult);
+            } else {
+                replier.reply("❌ 캐릭터를 먼저 생성해주세요.");
+            }
+            break;
+
+        case "!RPG도움말":
+            var helpText = "⚔ Mars Rpg 명령어" + " ".repeat(500)+
+                           "\n!캐릭터생성 - 새 캐릭터 생성\n" +
+                           "!상태확인 - 캐릭터 상태 확인\n" +
+                           "!전투 [몬스터이름] - 몬스터와 전투\n" +
+                           "!보스전투 [보스이름] - 보스와 전투\n" +
+                           "!상점 - 아이템 구매\n" +
+                           "!아이템구매 [아이템이름] - 아이템 구매\n" +
+                           "!아이템사용 [아이템이름] - 아이템 사용\n" +
+                           "!장비장착 [아이템이름] - 장비 장착\n" +
+                           "!장비해제 [무기/방어구/악세서리] - 장비 해제\n" +
+                           "!스킬배우기 [스킬이름] - 새로운 스킬 습득\n" +
+                           "!퀘스트목록 - 수행 가능한 퀘스트 확인\n" +
+                           "!퀘스트완료 [퀘스트제목] - 퀘스트 완료\n" +
+                           "!스킬목록 - 보유한 스킬 확인\n" +
+                           "!인벤토리 - 보유한 아이템 확인\n" +
+                           "!장비강화 [아이템이름] - 장비 강화\n" +
+                           "!던전입장 [던전이름] - 던전 입장\n" +
+                           "!랜덤이벤트 - 랜덤 이벤트 발생";
+            replier.reply(helpText);
+            break;
+
+        }
+}
+
+// 초기 아이템, 몬스터, 보스, 퀘스트, 스킬 추가
+addItem("소형 체력 포션", "HP를 30 회복합니다.\n\n", { heal: 30, price: 30 });
+addItem("중형 체력 포션", "HP를 70 회복합니다.\n\n", { heal: 70, price: 70 });
+addItem("대형 체력 포션", "HP를 150 회복합니다.\n\n", { heal: 150, price: 150 });
+addItem("소형 마나 포션", "MP를 20 회복합니다.\n\n", { mpRestore: 20, price: 25 });
+addItem("중형 마나 포션", "MP를 50 회복합니다.\n\n", { mpRestore: 50, price: 60 });
+addItem("대형 마나 포션", "MP를 100 회복합니다.\n\n", { mpRestore: 100, price: 120 });
+
+// 근접 무기
+addItem("청동 단검", "기본적인 단검입니다.\n\n", { attackBoost: 8, price: 150, type: "weapon" });
+addItem("강철 장검", "표준적인 장검입니다.\n\n", { attackBoost: 15, price: 300, type: "weapon" });
+addItem("미스릴 대검", "가볍고 강한 대검입니다.\n\n", { attackBoost: 91, price: 100, type: "weapon" });
+addItem("불꽃의 도끼", "화염 속성이 부여된 도끼입니다.\n\n", { attackBoost: 61, fireBoost: 10, price: 800, type: "weapon" });
+addItem("얼음 창", "얼음 속성이 부여된 창입니다.\n\n", { attackBoost: 76, iceBoost: 12, price: 100, type: "weapon" });
+addItem("번개의 망치", "번개 속성이 부여된 망치입니다.\n\n", { attackBoost: 100, thunderBoost: 15, price: 250, type: "weapon" });
+addItem("이거 사세요.", "퍼주는검.\n\n", { attackBoost: 1000, thunderBoost: 150, price: 2500, type: "weapon" });
+
+// 원거리 무기
+addItem("단궁", "기본적인 활입니다.\n\n", { attackBoost: 10, price: 200, type: "weapon" });
+addItem("장궁", "사거리가 긴 활입니다.\n\n", { attackBoost: 18, price: 400, type: "weapon" });
+addItem("크로스보우", "강력한 관통력을 가진 무기입니다.\n\n", { attackBoost: 22, price: 500, type: "weapon" });
+addItem("마법 지팡이", "마법 공격력을 높여주는 지팡이입니다.\n\n", { attackBoost: 12, magicBoost: 20, price: 600, type: "weapon" });
+addItem("현자의 오브", "마법 효과를 증폭시키는 오브입니다.\n\n", { attackBoost: 8, magicBoost: 30, price: 700, type: "weapon" });
+
+// 전설급 무기
+addItem("엑스칼리버", "전설의 성검입니다.\n\n", { attackBoost: 500, holyBoost: 30, price: 900, type: "weapon" });
+addItem("궁니르", "신의 창입니다.\n\n", { attackBoost: 5500, thunderBoost: 25, price: 6500, type: "weapon" });
+addItem("미욜니르", "번개의 신 토르의 망치입니다.\n\n", { attackBoost: 600, thunderBoost: 40, price: 1700, type: "weapon" });
+addItem("무한의 검", "차원을 가르는 검입니다.\n\n", { attackBoost: 700, price: 2000, type: "weapon" });
+addItem("피의 검", "피로 적을 뒤덮습니다.\n\n", { attackBoost: 20000, demonSlayer: 10200, price: 12000, type: "weapon" });
+
+// 특수 무기
+addItem("흡혈의 단검", "적의 피를 흡수하는 단검입니다.\n\n", { attackBoost: 2000, lifeSteal: 10, price: 3500, type: "weapon" });
+addItem("독사의 활", "독 속성이 부여된 활입니다.\n\n", { attackBoost: 2500, poisonBoost: 15, price: 1600, type: "weapon" });
+addItem("그림자 단도", "은신 능력을 부여하는 단도입니다.\n\n", { attackBoost: 2200, stealthBoost: 20, price: 3700, type: "weapon" });
+addItem("용사의 대검", "용족에게 추가 데미지를 주는 대검입니다.\n\n", { attackBoost: 3500, dragonSlayer: 50, price: 5000, type: "weapon" });
+addItem("악마 퇴치의 홀리워터", "악마족에게 추가 데미지를 주는 성수입니다.\n\n", { attackBoost: 1500, holyBoost: 40, demonSlayer: 60, price: 2800, type: "weapon" });
+addItem("대왕족 무기", "대왕족의 위대한 무기입니다.\n\n", { attackBoost: 7822192, holyBoost: 600, demonSlayer: 600, price: 28000, type: "weapon" });
+
+// 직업별 특수 무기
+addItem("암살자의 쌍검", "암살자 전용 쌍검입니다.\n\n", { attackBoost: 400, criticalBoost: 20, price: 500, type: "weapon", class: "assassin" });
+addItem("성기사의 성검", "성기사 전용 성검입니다.\n\n", { attackBoost: 450, holyBoost: 25, defenseBoost: 15, price: 500, type: "weapon", class: "paladin" });
+addItem("대마법사의 지팡이", "대마법사 전용 지팡이입니다.\n\n", { attackBoost: 200, magicBoost: 50, mpBoost: 100, price: 320, type: "weapon", class: "archmage" });
+addItem("레인저의 장궁", "레인저 전용 장궁입니다.\n\n", { attackBoost: 420, rangeBoost: 30, criticalBoost: 15, price: 600, type: "weapon", class: "ranger" });
+addItem("버서커의 대도", "버서커 전용 대도입니다.\n\n", { attackBoost: 550, rageBoost: 25, price: 500, type: "weapon", class: "berserker" });
+
+// 초강력 무기 추가
+addItem("천상의 심판자", "신들의 힘이 깃든 전설의 대검입니다.\n\n", { attackBoost: 150000, holyBoost: 10000, criticalBoost: 300, price: 500000, type: "weapon" });
+addItem("혼돈의 파괴자", "세계의 종말을 부르는 저주받은 도끼입니다.\n\n", { attackBoost: 180000, chaosBoost: 12000, lifeSteal: 20, price: 550000, type: "weapon" });
+addItem("우주의 지배자", "은하계의 힘을 다루는 지팡이입니다.\n\n", { attackBoost: 100000, magicBoost: 20000, mpBoost: 5000, price: 600000, type: "weapon" });
+addItem("시공간의 왜곡자", "현실을 뒤틀 수 있는 신비한 단검입니다.\n\n", { attackBoost: 130000, stealthBoost: 10000, timeWarpBoost: 500, price: 580000, type: "weapon" });
+addItem("절대자의 활", "모든 것을 꿰뚫는 신성한 활입니다.\n\n", { attackBoost: 160000, pierceBoost: 10050, rangeBoost: 1000, price: 570000, type: "weapon" });
+
+// 초강력 보스 추가
+addBoss("세계수 이그드라실", 1000000, 30000, 20000, 1000000, 10000000, "생명의 근원", { name: "세계의 씨앗", attackBoost: 200000, defenseBoost: 1500, type: "accessory" });
+addBoss("혼돈의 신 티아마트", 1200000, 35000, 18000, 1200000, 12000000, "원초의 혼돈", { name: "혼돈의 비늘", attackBoost: 200050, chaosBoost: 2000, type: "armor" });
+addBoss("천상의 심판자 메타트론", 1100000, 40000, 25000, 11000, 110000, "천벌", { name: "천상의 날개", holyBoost: 300000, mpBoost: 10000, type: "accessory" });
+addBoss("심연의 지배자 크툴루", 1500000, 5000, 15000, 1500000, 150000, "광기의 속삭임", { name: "심연의 눈", magicBoost: 400000, sanityDrain: 500, type: "accessory" });
+addBoss("시공간의 지배자 크로노스", 1300000, 45000, 22000, 13000, 130000, "시간 정지", { name: "시간의 모래시계", timeWarpBoost: 250000, attackBoost: 2000, type: "accessory" });
+
+// 방어구
+addItem("가죽 갑옷", "방어력을 3 증가시킵니다.\n\n", { defenseBoost: 10, price: 80, type: "armor" });
+addItem("철 갑옷", "방어력을 8 증가시킵니다.\n\n", { defenseBoost: 15, price: 200, type: "armor" });
+addItem("미스릴 갑옷", "방어력을 15 증가시킵니다.\n\n", { defenseBoost: 200, price: 500, type: "armor" });
+
+addMonster("슬라임", 40, 5, 2, 20, 10);
+addMonster("고블린", 60, 8, 3, 35, 20);
+addMonster("오크", 100, 12, 5, 60, 35);
+addMonster("트롤", 150, 18, 8, 90, 55);
+addMonster("늑대", 70, 10, 4, 40, 25);
+addMonster("스켈레톤", 80, 11, 3, 45, 30);
+addMonster("좀비", 100, 9, 6, 50, 35);
+addMonster("밴시", 310, 15, 4, 65, 40);
+addMonster("하피", 620, 16, 5, 70, 45);
+addMonster("미노타우르스", 1080, 20, 10, 100, 70);
+/**
+hp, att, ?, xp, gold
+**/
+addBoss("드래곤", 10000, 500, 300, 5000, 10000, "화염 브레스", { name: "드래곤 슬레이어", attackBoost: 5000, type: "weapon" });
+addBoss("데몬 로드", 20000, 800, 500, 1000, 20000, "어둠의 저주", { name: "데몬 블레이드", attackBoost: 7000, type: "weapon" });
+addBoss("심연에 길들어진 괴", 60000, 600, 400, 700, 15000, "촉수 휘감기", { name: "깊은 바다의 삼지창", attackBoost: 6000, type: "weapon" });
+addBoss("부활자", 55000, 550, 3005, 6000, 13000, "부활의 불꽃", { name: "불사조의 깃털 지팡이", attackBoost: 5500, type: "weapon" });
+addBoss("히드라", 75000, 700, 450, 900, 18000, "다중 공격", { name: "히드라의 독 검", attackBoost: 6500, type: "weapon" });
+addBoss("악에 물들어진 자", 100000, 898, 910, 780, 100000, "피를 다스리다.", { name: "붉은 검", attackBoost: 500000, type: "weapon" });
+addBoss("마스봇", 100000000000, 50000000000, 3000000, 5000000000, 100000000000, "행성 공격", { name: "신의 권력", attackBoost: 5000000092329299192910, type: "weapon" });
+
+
+addQuest("슬라임 퇴치", "슬라임 5마리 퇴치하기", 100, 50, 1, 5);
+addQuest("고블린 소탕", "고블린 10마리 처치하기", 200, 100, 3, 10);
+addQuest("오크 우두머리 처치", "오크 우두머리 처치하기", 300, 200, 5, 1);
+addQuest("트롤 동굴 탐험", "트롤 5마리 처치하기", 400, 300, 7, 5);
+addQuest("늑대 무리 퇴치", "늑대 15마리 처치하기", 250, 150, 4, 15);
+
+addSkill("파이어볼", "화염 공격을 가합니다.", 20, 30, "magic");
+addSkill("아이스 블라스트", "얼음 공격을 가합니다.", 25, 35, "magic");
+addSkill("힐", "HP를 회복합니다.", 30, -50, "heal");
+addSkill("번개 일격", "강력한 번개 공격을 가합니다.", 40, 60, "magic");
+
+createDungeon("고블린 소굴", 1, 5, ["고블린", "고블린", "고블린 대장"]);
+createDungeon("오크 요새", 5, 10, ["오크", "오크", "오크 전사", "오크 대장"]);
+createDungeon("드래곤의 둥지", 15, 20, ["하피", "트롤", "미노타우르스", "드래곤"]);
+
+// 초월적 무기 추가
+addItem("창조와 파괴의 권능", "우주의 섭리를 조종하는 전지전능한 힘입니다.\n\n", {
+    attackBoost: 100000,
+    allStatsBoost: 50000,
+    realityWarp: 10000,
+    price: 100000,
+    type: "weapon",
+    description: "모든 공격이 필중. 적의 방어력 무시. 매 턴 최대 HP의 10% 회복."
+});
+
+addItem("무한의 제어봉", "무한한 에너지를 제어하는 신의 도구입니다.\n\n", {
+    attackBoost: 80000,
+    magicBoost: 120000,
+    infiniteEnergy: true,
+    price: 950000,
+    type: "weapon",
+    description: "MP 소모 없음. 모든 마법 공격력 3배 증가. 적 공격 25% 확률로 무효화."
+});
+
+addItem("운명의 실 가위", "생명의 실을 자르는 운명의 도구입니다.\n\n", {
+    attackBoost: 1500000,
+    instantKill: 1000,
+    price: 1100000,
+    type: "weapon",
+    description: "매 공격시 10% 확률로 적 즉사. 크리티컬 확률 50% 증가."
+});
+
+// 초월적 보스 추가
+addBoss("절대신 오므니포텐스", 1000000, 10000, 5000, 1000000, 10000000, "현실 왜곡", {
+    name: "전지전능의 왕관",
+    allStatsBoost: 1000,
+    realityManipulation: 100,
+    type: "accessory",
+    description: "착용자의 모든 능력치 1000 증가. 현실 조작 능력 부여."
+});
+
+addBoss("혼돈의 원초신 아브조스", 1500000, 15000, 3000, 1500000, 15000000, "무한 증식", {
+    name: "혼돈의 심장",
+    attackBoost: 2000,
+    regeneration: 100000,
+    type: "accessory",
+    description: "매 턴마다 10만의 체력 회복. 모든 공격이 범위 공격으로 변경."
+});
+
+addBoss("시공간의 절대자 에테르누스", 1200000, 12000, 4000, 1200000, 12000000, "시공간 붕괴", {
+    name: "영원의 모래시계",
+    timeManipulation: 100,
+    dodgeChance: 50,
+    type: "accessory",
+    description: "50% 확률로 모든 공격 회피. 가끔 적의 턴을 완전히 삭제."
+});
+
+// 보스 전용 특수 능력 강화
+function useBossSpecialAbility(boss, player) {
+    switch(boss.name) {
+        case "절대신 오므니포텐스":
+            player.maxHp /= 2;
+            player.hp = Math.min(player.hp, player.maxHp);
+            return "오므니포텐스가 현실을 왜곡했습니다. 당신의 최대 체력이 절반으로 줄었습니다!";
+        case "혼돈의 원초신 아브조스":
+            boss.hp += 500000;
+            return "아브조스가 무한 증식을 시전했습니다. 체력이 50만 증가하고 당신에게 광역 공격을 가합니다!";
+        case "시공간의 절대자 에테르누스":
+            return "에테르누스가 시공간을 붕괴시켰습니다. 다음 3턴 동안 행동할 수 없습니다!";
+        case "세계수 이그드라실":
+            return "세계수 이그드라실이 생명의 근원을 사용했습니다. 모든 스탯이 10% 증가합니다.";
+        case "혼돈의 신 티아마트":
+            player.attack *= 0.8;
+            player.defense *= 0.8;
+            return "티아마트가 원초의 혼돈을 일으켰습니다. 당신의 공격력과 방어력이 20% 감소했습니다.";
+        case "천상의 심판자 메타트론":
+            player.hp -= Math.floor(player.maxHp * 0.3);
+            return "메타트론이 천벌을 내렸습니다. 최대 체력의 30%에 해당하는 " + Math.floor(player.maxHp * 0.3) + "의 피해를 입었습니다.";
+        case "심연의 지배자 크툴루":
+            player.mp = 0;
+            return "크툴루의 광기의 속삭임이 당신의 정신을 침식했습니다. MP가 0이 되었습니다.";
+        case "시공간의 지배자 크로노스":
+            return "크로노스가 시간을 정지시켰습니다. 다음 턴에 행동할 수 없습니다.";
+        default:
+            return boss.name + "이(가) " + boss.specialAbility + "을(를) 사용했습니다.";
+    }
+}
