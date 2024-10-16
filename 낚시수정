@@ -1,168 +1,429 @@
-function onNotificationPosted(sbn, sm) {
-  var packageName = sbn.getPackageName();
-  if (!packageName.startsWith("com.kakao.tal")) return;
-  var actions = sbn.getNotification().actions;
-  if (actions == null) return;
-  var userId = sbn.getUser().hashCode();
-  for (var n = 0; n < actions.length; n++) {
-    var action = actions[n];
-    if (action.getRemoteInputs() == null) continue;
-    var bundle = sbn.getNotification().extras;
-    var msg = bundle.get("android.text").toString();
-    var sender = bundle.getString("android.title");
-    var room = bundle.getString("android.subText");
-    if (room == null) room = bundle.getString("android.summaryText");
-    var isGroupChat = room != null;
-    if (room == null) room = sender;
-    var replier = new com.xfl.msgbot.script.api.legacy.SessionCacheReplier(packageName, action, room, false, "");
-    var icon = bundle.getParcelableArray("android.messages")[0].get("sender_person").getIcon().getBitmap();
-    var image = bundle.getBundle("android.wearable.EXTENSIONS");
-    if (image != null) image = image.getParcelable("background");
-    var imageDB = new com.xfl.msgbot.script.api.legacy.ImageDB(icon, image);
-    com.xfl.msgbot.application.service.NotificationListener.Companion.setSession(packageName, room, action);
-    if (this.hasOwnProperty("responseFix")) {
-      responseFix(room, msg, sender, isGroupChat, replier, imageDB, packageName, userId != 0);
-    }
-  }
-  
-}
-
-var players = {};
-var fishTypes = [
-    {name: "멸치", price: 10, grade: "일반", chance: 30},
-    {name: "고등어", price: 50, grade: "일반", chance: 25},
-    {name: "꽁치", price: 30, grade: "일반", chance: 20},
-    {name: "참치", price: 100, grade: "희귀", chance: 10},
-    {name: "연어", price: 150, grade: "희귀", chance: 8},
-    {name: "상어", price: 500, grade: "희귀", chance: 5},
-    {name: "돔", price: 200, grade: "희귀", chance: 7},
-    {name: "고래", price: 1000, grade: "전설", chance: 3},
-    {name: "금붕어", price: 2000, grade: "전설", chance: 1},
-    {name: "용왕", price: 5000, grade: "신화", chance: 0.5}
-];
-var rods = [
-    {name: "기본 낚싯대", price: 0, multiplier: 1},
-    {name: "중급 낚싯대", price: 1000, multiplier: 1.2},
-    {name: "고급 낚싯대", price: 5000, multiplier: 1.5},
-    {name: "프로 낚싯대", price: 10000, multiplier: 1.8},
-    {name: "전설의 낚싯대", price: 20000, multiplier: 2},
-    {name: "신의 낚싯대", price: 50000, multiplier: 2.5}
+const TITLES = [
+    { name: "초보 낚시꾼", cost: 0 },
+    { name: "견습 낚시꾼", cost: 5000 },
+    { name: "중급 낚시꾼", cost: 20000 },
+    { name: "숙련 낚시꾼", cost: 50000 },
+    { name: "전문 낚시꾼", cost: 100000 },
+    { name: "마스터 낚시꾼", cost: 200000 },
+    { name: "그랜드마스터 낚시꾼", cost: 500000 },
+    { name: "전설의 낚시꾼", cost: 1000000 },
+    { name: "낚시의 신", cost: 5000000 }
 ];
 
-function catchFish(rodMultiplier) {
-    var fishes = [];
-    var catchCount = Math.random() < 0.2 ? 2 : 1;  // 20% 확률로 2마리 낚기
+const FISHES = [
+    // 흔함
+    { name: "멸치", rarity: "흔함", price: 50 },
+    { name: "꽁치", rarity: "흔함", price: 60 },
+    { name: "정어리", rarity: "흔함", price: 70 },
+    { name: "빙어", rarity: "흔함", price: 80 },
+    { name: "전갱이", rarity: "흔함", price: 90 },
     
-    for (var i = 0; i < catchCount; i++) {
-        var random = Math.random() * 100;
-        var cumulativeChance = 0;
-        for (var j = 0; j < fishTypes.length; j++) {
-            cumulativeChance += fishTypes[j].chance * rodMultiplier;
-            if (random <= cumulativeChance) {
-                var fish = Object.assign({}, fishTypes[j]);
-                
-                // 10% 확률로 2배, 5% 확률로 3배, 1% 확률로 5배의 가격을 가진 물고기 생성
-                var priceMultiplier = 1;
-                var luckyRandom = Math.random() * 100;
-                if (luckyRandom < 1) {
-                    priceMultiplier = 5;
-                    fish.grade = "행운의 " + fish.grade;
-                } else if (luckyRandom < 5) {
-                    priceMultiplier = 3;
-                    fish.grade = "행운의 " + fish.grade;
-                } else if (luckyRandom < 15) {
-                    priceMultiplier = 2;
-                    fish.grade = "행운의 " + fish.grade;
-                }
-                
-                fish.price *= priceMultiplier;
-                fishes.push(fish);
-                break;
-            }
-        }
-        if (fishes.length <= i) {
-            fishes.push(fishTypes[0]);  // 기본값으로 멸치 추가
-        }
+    // 일반
+    { name: "고등어", rarity: "일반", price: 100 },
+    { name: "갈치", rarity: "일반", price: 150 },
+    { name: "광어", rarity: "일반", price: 200 },
+    { name: "우럭", rarity: "일반", price: 250 },
+    { name: "농어", rarity: "일반", price: 300 },
+    { name: "방어", rarity: "일반", price: 350 },
+    { name: "도미", rarity: "일반", price: 400 },
+    
+    // 희귀
+    { name: "참치", rarity: "희귀", price: 500 },
+    { name: "연어", rarity: "희귀", price: 600 },
+    { name: "대구", rarity: "희귀", price: 700 },
+    { name: "민어", rarity: "희귀", price: 800 },
+    { name: "복어", rarity: "희귀", price: 900 },
+    { name: "장어", rarity: "희귀", price: 1000 },
+    { name: "붕어", rarity: "희귀", price: 1100 },
+    { name: "잉어", rarity: "희귀", price: 1200 },
+    
+    // 전설
+    { name: "상어", rarity: "전설", price: 2000 },
+    { name: "청새치", rarity: "전설", price: 2500 },
+    { name: "돌고래", rarity: "전설", price: 3000 },
+    { name: "가오리", rarity: "전설", price: 3500 },
+    { name: "황금 참치", rarity: "전설", price: 4000 },
+    { name: "흰수염고래", rarity: "전설", price: 5000 },
+    
+    // 신화
+    { name: "용신의 비늘", rarity: "신화", price: 10000 },
+    { name: "인어의 눈물", rarity: "신화", price: 15000 },
+    { name: "포세이돈의 삼지창", rarity: "신화", price: 20000 },
+    { name: "아틀란티스의 보물", rarity: "신화", price: 25000 },
+    { name: "크라켄의 촉수", rarity: "신화", price: 30000 }
+];
+
+const FISHING_RODS = [
+    { name: "초보자용 낚싯대", cost: 0, powerBonus: 1 },
+    { name: "견습생용 낚싯대", cost: 5000, powerBonus: 1.2 },
+    { name: "중급자용 낚싯대", cost: 10000, powerBonus: 1.5 },
+    { name: "숙련자용 낚싯대", cost: 25000, powerBonus: 1.8 },
+    { name: "전문가용 낚싯대", cost: 50000, powerBonus: 2.2 },
+    { name: "마스터용 낚싯대", cost: 100000, powerBonus: 2.7 },
+    { name: "그랜드마스터용 낚싯대", cost: 200000, powerBonus: 3.3 },
+    { name: "챔피언용 낚싯대", cost: 350000, powerBonus: 4 },
+    { name: "전설의 낚싯대", cost: 500000, powerBonus: 5 },
+    { name: "신의 낚싯대", cost: 1000000, powerBonus: 7 },
+    { name: "창조주의 낚싯대", cost: 2000000, powerBonus: 10 }
+
+const FileStream = java.io.FileStream;
+const File = java.io.File;
+
+const DATA_DIR = "/sdcard/fishing_game/";
+new File(DATA_DIR).mkdirs();
+
+function saveData(key, value) {
+    try {
+        const file = new File(DATA_DIR + key + ".json");
+        const fos = new FileStream(file, "w");
+        fos.write(JSON.stringify(value));
+        fos.close();
+    } catch (e) {
+        Log.e("Error saving data: " + e);
     }
-    return fishes;
 }
 
-function response(room, msg, sender, isGroupChat, replier) {
-    if (msg == "!낚시시작") {
-        players[sender] = {
-            fish: 0,
-            lastFishing: 0,
-            money: 1000,
-            rod: 0
-        };
-        replier.reply(sender + "님, 낚시를 시작합니다! 초기 자금 1000원이 지급됩니다.");
+function loadData(key) {
+    try {
+        const file = new File(DATA_DIR + key + ".json");
+        if (!file.exists()) return null;
+        const fis = new FileStream(file);
+        const data = JSON.parse(fis.read());
+        fis.close();
+        return data;
+    } catch (e) {
+        Log.e("Error loading data: " + e);
+        return null;
+    }
+}
+
+const TITLES = [
+    { name: "초보 낚시꾼", cost: 0 },
+    { name: "견습 낚시꾼", cost: 5000 },
+    { name: "중급 낚시꾼", cost: 20000 },
+    { name: "숙련 낚시꾼", cost: 50000 },
+    { name: "전문 낚시꾼", cost: 100000 },
+    { name: "마스터 낚시꾼", cost: 200000 },
+    { name: "그랜드마스터 낚시꾼", cost: 500000 },
+    { name: "전설의 낚시꾼", cost: 1000000 },
+    { name: "낚시의 신", cost: 5000000 }
+];
+
+const FISHES = [
+    // 흔함
+    { name: "멸치", rarity: "흔함", price: 50 },
+    { name: "꽁치", rarity: "흔함", price: 60 },
+    { name: "정어리", rarity: "흔함", price: 70 },
+    { name: "빙어", rarity: "흔함", price: 80 },
+    { name: "전갱이", rarity: "흔함", price: 90 },
+    
+    // 일반
+    { name: "고등어", rarity: "일반", price: 100 },
+    { name: "갈치", rarity: "일반", price: 150 },
+    { name: "광어", rarity: "일반", price: 200 },
+    { name: "우럭", rarity: "일반", price: 250 },
+    { name: "농어", rarity: "일반", price: 300 },
+    { name: "방어", rarity: "일반", price: 350 },
+    { name: "도미", rarity: "일반", price: 400 },
+    
+    // 희귀
+    { name: "참치", rarity: "희귀", price: 500 },
+    { name: "연어", rarity: "희귀", price: 600 },
+    { name: "대구", rarity: "희귀", price: 700 },
+    { name: "민어", rarity: "희귀", price: 800 },
+    { name: "복어", rarity: "희귀", price: 900 },
+    { name: "장어", rarity: "희귀", price: 1000 },
+    { name: "붕어", rarity: "희귀", price: 1100 },
+    { name: "잉어", rarity: "희귀", price: 1200 },
+    
+    // 전설
+    { name: "상어", rarity: "전설", price: 2000 },
+    { name: "청새치", rarity: "전설", price: 2500 },
+    { name: "돌고래", rarity: "전설", price: 3000 },
+    { name: "가오리", rarity: "전설", price: 3500 },
+    { name: "황금 참치", rarity: "전설", price: 4000 },
+    { name: "흰수염고래", rarity: "전설", price: 5000 },
+    
+    // 신화
+    { name: "용신의 비늘", rarity: "신화", price: 10000 },
+    { name: "인어의 눈물", rarity: "신화", price: 15000 },
+    { name: "포세이돈의 삼지창", rarity: "신화", price: 20000 },
+    { name: "아틀란티스의 보물", rarity: "신화", price: 25000 },
+    { name: "크라켄의 촉수", rarity: "신화", price: 30000 }
+];
+
+const FISHING_RODS = [
+    { name: "초보자용 낚싯대", cost: 0, powerBonus: 1 },
+    { name: "견습생용 낚싯대", cost: 5000, powerBonus: 1.2 },
+    { name: "중급자용 낚싯대", cost: 10000, powerBonus: 1.5 },
+    { name: "숙련자용 낚싯대", cost: 25000, powerBonus: 1.8 },
+    { name: "전문가용 낚싯대", cost: 50000, powerBonus: 2.2 },
+    { name: "마스터용 낚싯대", cost: 100000, powerBonus: 2.7 },
+    { name: "그랜드마스터용 낚싯대", cost: 200000, powerBonus: 3.3 },
+    { name: "챔피언용 낚싯대", cost: 350000, powerBonus: 4 },
+    { name: "전설의 낚싯대", cost: 500000, powerBonus: 5 },
+    { name: "신의 낚싯대", cost: 1000000, powerBonus: 7 },
+    { name: "창조주의 낚싯대", cost: 2000000, powerBonus: 10 }
+];
+
+function getUser(userId) {
+    return loadData("user_" + userId) || null;
+}
+
+function createUser(userId) {
+    const newUser = {
+        id: userId,
+        money: 0,
+        fishingRod: FISHING_RODS[0],
+        title: TITLES[0].name,
+        energy: 10,
+        currentLocation: "기본 낚시터",
+        inventory: []
+    };
+    saveData("user_" + userId, newUser);
+    return newUser;
+}
+
+function updateUser(user) {
+    saveData("user_" + user.id, user);
+}
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    const userId = sender;
+    let user = getUser(userId);
+
+    if (msg === "!낚시가입") {
+        if (user) {
+            replier.reply("이미 가입되어 있습니다.");
+        } else {
+            user = createUser(userId);
+            replier.reply("낚시 게임에 가입되었습니다!");
+        }
+    } else if (msg === "!낚시") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        if (user.energy < 1) {
+            replier.reply("체력이 부족합니다. !상점 에서 체력을 구매하세요.");
+            return;
+        }
+        const caughtFish = goFishing(user);
+        user.energy--;
+        user.inventory.push(caughtFish);
+        updateUser(user);
+        replier.reply(caughtFish.name + "을(를) 잡았습니다! (등급: " + caughtFish.rarity + ", 가격: " + caughtFish.price + "원)\n남은 체력: " + user.energy);
+    } else if (msg === "!판매") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const soldAmount = sellFish(user);
+        updateUser(user);
+        replier.reply(soldAmount + "원어치의 물고기를 판매했습니다.");
+    } else if (msg === "!지갑") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        replier.reply("현재 보유 금액: " + user.money + "원");
+    } else if (msg === "!내정보") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        replier.reply("칭호: " + user.title + "\n낚싯대: " + user.fishingRod.name + " (파워 보너스: x" + user.fishingRod.powerBonus + ")\n보유 금액: " + user.money + "원\n체력: " + user.energy + "\n현재 위치: " + user.currentLocation);
+    } else if (msg === "!칭호구매") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const result = buyTitle(user);
+        updateUser(user);
+        replier.reply(result);
+    } else if (msg === "!낚싯대구매") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const result = buyFishingRod(user);
+        updateUser(user);
+        replier.reply(result);
+    } else if (msg === "!랭킹") {
+        const ranking = getFishingRanking();
+        replier.reply(ranking);
+    } else if (msg === "!낚시터이동") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const locations = getAvailableLocations(user);
+        replier.reply("이동 가능한 낚시터:\n" + locations.join("\n") + "\n\n원하는 낚시터 이름을 '!낚시터이동 [낚시터 이름]' 형식으로 입력하세요.");
+    } else if (msg.startsWith("!낚시터이동 ")) {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const newLocation = msg.split(" ").slice(1).join(" ");
+        const result = moveToLocation(user, newLocation);
+        updateUser(user);
+        replier.reply(result);
+    } else if (msg === "!도감") {
+        const fishBook = getFishBook();
+        replier.reply(fishBook);
+    } else if (msg === "!퀘스트") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const quests = getAvailableQuests(user);
+        replier.reply("현재 가능한 퀘스트:\n" + quests);
+    } else if (msg === "!체력") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        replier.reply("현재 체력: " + user.energy + "/10");
+    } else if (msg === "!상점") {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const shopItems = getShopItems();
+        replier.reply("상점 아이템:\n" + shopItems);
+    } else if (msg.startsWith("!구매 ")) {
+        if (!user) {
+            replier.reply("먼저 !낚시가입 을 해주세요.");
+            return;
+        }
+        const itemName = msg.split(" ").slice(1).join(" ");
+        const result = buyItem(user, itemName);
+        updateUser(user);
+        replier.reply(result);
+    }
+}
+
+function goFishing(user) {
+    const randomNumber = Math.random() * user.fishingRod.powerBonus;
+    let caughtFish;
+    if (randomNumber < 0.5) {
+        caughtFish = FISHES.filter(fish => fish.rarity === "흔함")[Math.floor(Math.random() * FISHES.filter(fish => fish.rarity === "흔함").length)];
+    } else if (randomNumber < 0.8) {
+        caughtFish = FISHES.filter(fish => fish.rarity === "일반")[Math.floor(Math.random() * FISHES.filter(fish => fish.rarity === "일반").length)];
+    } else if (randomNumber < 0.95) {
+        caughtFish = FISHES.filter(fish => fish.rarity === "희귀")[Math.floor(Math.random() * FISHES.filter(fish => fish.rarity === "희귀").length)];
+    } else if (randomNumber < 0.99) {
+        caughtFish = FISHES.filter(fish => fish.rarity === "전설")[Math.floor(Math.random() * FISHES.filter(fish => fish.rarity === "전설").length)];
+    } else {
+        caughtFish = FISHES.filter(fish => fish.rarity === "신화")[Math.floor(Math.random() * FISHES.filter(fish => fish.rarity === "신화").length)];
+    }
+    return caughtFish;
+}
+
+function sellFish(user) {
+    let totalAmount = 0;
+    user.inventory.forEach(fish => {
+        totalAmount += fish.price;
+    });
+    user.money += totalAmount;
+    user.inventory = [];
+    return totalAmount;
+}
+
+function buyTitle(user) {
+    const currentTitleIndex = TITLES.findIndex(title => title.name === user.title);
+    if (currentTitleIndex < TITLES.length - 1) {
+        const nextTitle = TITLES[currentTitleIndex + 1];
+        if (user.money >= nextTitle.cost) {
+            user.money -= nextTitle.cost;
+            user.title = nextTitle.name;
+            return "새로운 칭호 '" + nextTitle.name + "'을(를) 구매했습니다!";
+        } else {
+            return "돈이 부족합니다. 필요 금액: " + nextTitle.cost + "원";
+        }
+    }
+    return "더 이상 구매할 수 있는 칭호가 없습니다.";
+}
+
+function buyFishingRod(user) {
+    const currentRodIndex = FISHING_RODS.findIndex(rod => rod.name === user.fishingRod.name);
+    if (currentRodIndex < FISHING_RODS.length - 1) {
+        const nextRod = FISHING_RODS[currentRodIndex + 1];
+        if (user.money >= nextRod.cost) {
+            user.money -= nextRod.cost;
+            user.fishingRod = nextRod;
+            return "새로운 낚싯대 '" + nextRod.name + "'을(를) 구매했습니다! (파워 보너스: x" + nextRod.powerBonus + ")";
+        } else {
+            return "돈이 부족합니다. 필요 금액: " + nextRod.cost + "원";
+        }
+    }
+    return "더 이상 구매할 수 있는 낚싯대가 없습니다.";
+}
+
+function getFishingRanking() {
+    const users = Object.values(loadData("users") || {});
+    users.sort((a, b) => b.money - a.money);
+    let ranking = "낚시터 랭킹 (상위 5명):\n";
+    for (let i = 0; i < Math.min(5, users.length); i++) {
+        ranking += (i + 1) + ". " + users[i].id + " - " + users[i].money + "원\n";
+    }
+    return ranking;
+}
+
+function getAvailableLocations(user) {
+    return ["기본 낚시터", "강가", "바다", "호수"];
+}
+
+function moveToLocation(user, newLocation) {
+    const availableLocations = getAvailableLocations(user);
+    if (availableLocations.includes(newLocation)) {
+        user.currentLocation = newLocation;
+        return newLocation + "로 이동했습니다!";
+    }
+    return "이동할 수 없는 낚시터입니다.";
+}
+
+function getFishBook() {
+    let fishBook = "물고기 도감:\n";
+    const rarities = ["흔함", "일반", "희귀", "전설", "신화"];
+    
+    for (let rarity of rarities) {
+        fishBook += "\n" + rarity + " 등급:\n";
+        const fishesOfRarity = FISHES.filter(fish => fish.rarity === rarity);
+        for (let fish of fishesOfRarity) {
+            fishBook += fish.name + " (가격: " + fish.price + "원)\n";
+        }
     }
     
-    else if (msg == "!낚시") {
-        if (!players[sender]) {
-            replier.reply(sender + "님, 먼저 '!낚시시작'으로 게임을 시작해주세요.");
-            return;
+    return fishBook;
+}
+
+function getAvailableQuests(user) {
+    return "1. 물고기 10마리 잡기\n2. 50,000원 모으기\n3. 최고급 낚싯대 구매하기";
+}
+
+function getShopItems() {
+    return "1. 체력 물약 (체력 +5) - 1,000원\n2. 고급 미끼 (희귀 물고기 확률 증가) - 5,000원\n3. 낚싯대 구매 - '!낚싯대구매' 명령어 사용";
+}
+
+function buyItem(user, itemName) {
+    if (itemName === "체력 물약") {
+        if (user.money >= 1000) {
+            user.money -= 1000;
+            user.energy = Math.min(user.energy + 5, 10);
+            return "체력 물약을 구매했습니다. 현재 체력: " + user.energy;
+        } else {
+            return "돈이 부족합니다.";
         }
-        
-        var now = Date.now();
-        if (now - players[sender].lastFishing < 60000) {
-            replier.reply(sender + "님, 낚시는 1분에 한 번만 가능합니다.");
-            return;
+    } else if (itemName === "고급 미끼") {
+        if (user.money >= 5000) {
+            user.money -= 5000;
+            // 여기에 고급 미끼 효과 구현
+            return "고급 미끼를 구매했습니다. 다음 낚시에서 효과가 적용됩니다.";
+        } else {
+            return "돈이 부족합니다.";
         }
-        
-        players[sender].lastFishing = now;
-        var rodMultiplier = rods[players[sender].rod].multiplier;
-        var caughtFishes = catchFish(rodMultiplier);
-        var totalPrice = 0;
-        var fishInfo = "";
-        
-        for (var i = 0; i < caughtFishes.length; i++) {
-            players[sender].fish++;
-            totalPrice += caughtFishes[i].price;
-            fishInfo += caughtFishes[i].grade + " 등급의 " + caughtFishes[i].name + " (가격: " + caughtFishes[i].price + "원)\n";
-        }
-        
-        players[sender].money += totalPrice;
-        
-        var replyMsg = sender + "님이 " + caughtFishes.length + "마리를 낚았습니다!\n\n" +
-                       fishInfo + "\n" +
-                       "총 가격: " + totalPrice + "원\n" +
-                       "현재 " + players[sender].fish + "마리를 잡았습니다.\n" +
-                       "현재 자금: " + players[sender].money + "원";
-        
-        replier.reply(replyMsg);
-    }
-    
-    // 나머지 명령어 (!낚시현황, !상점, !구매)는 이전과 동일하게 유지
-  else if (msg == "!상점") {
-        var shopList = "낚싯대 상점:\n";
-        for (var i = 0; i < rods.length; i++) {
-            shopList += (i+1) + ". " + rods[i].name + " - " + rods[i].price + "원\n";
-        }
-        shopList += "\n구매하려면 '!구매 [번호]'를 입력하세요.";
-        replier.reply(shopList);
-    }
-    
-    else if (msg.startsWith("!구매 ")) {
-        if (!players[sender]) {
-            replier.reply(sender + "님, 먼저 '!낚시시작'으로 게임을 시작해주세요.");
-            return;
-        }
-        
-        var rodIndex = parseInt(msg.split(" ")[1]) - 1;
-        if (rodIndex < 0 || rodIndex >= rods.length) {
-            replier.reply("올바른 낚싯대 번호를 입력해주세요.");
-            return;
-        }
-        
-        if (players[sender].money < rods[rodIndex].price) {
-            replier.reply("돈이 부족합니다.");
-            return;
-        }
-        
-        players[sender].money -= rods[rodIndex].price;
-        players[sender].rod = rodIndex;
-        replier.reply(sender + "님이 " + rods[rodIndex].name + "를 구매했습니다!\n" +
-                      "남은 자금: " + players[sender].money + "원");
+    } else {
+        return "존재하지 않는 아이템입니다.";
     }
 }
