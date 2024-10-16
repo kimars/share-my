@@ -1,0 +1,144 @@
+var games = {};
+var rankings = {};
+
+function createGame(userId, difficulty) {
+    var digits = difficulty || 3;
+    var numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    var answer = [];
+    for (var i = 0; i < digits; i++) {
+        var index = Math.floor(Math.random() * numbers.length);
+        answer.push(numbers[index]);
+        numbers.splice(index, 1);
+    }
+    games[userId] = {
+        answer: answer,
+        attempts: 0,
+        startTime: new Date().getTime(),
+        hints: 2,
+        difficulty: digits
+    };
+    return "숫자야구 게임이 시작되었습니다. '!숫자 " + "1".repeat(digits) + "'과 같이 " + digits + "자리 숫자를 입력해주세요.";
+}
+
+function guess(userId, numbers) {
+    if (!games[userId]) {
+        return "먼저 '!숫자야구'로 게임을 시작해주세요.";
+    }
+    
+    var game = games[userId];
+    game.attempts++;
+    
+    var strikes = 0;
+    var balls = 0;
+    
+    for (var i = 0; i < game.difficulty; i++) {
+        if (numbers[i] === game.answer[i]) {
+            strikes++;
+        } else if (game.answer.indexOf(numbers[i]) !== -1) {
+            balls++;
+        }
+    }
+    
+    if (strikes === game.difficulty) {
+        var endTime = new Date().getTime();
+        var timeTaken = (endTime - game.startTime) / 1000;
+        var score = calculateScore(game.difficulty, game.attempts, timeTaken);
+        updateRanking(userId, score);
+        var result = "정답입니다! " + game.attempts + "번 만에 맞추셨습니다. 걸린 시간: " + timeTaken.toFixed(2) + "초, 점수: " + score;
+        delete games[userId];
+        return result;
+    } else {
+        return strikes + "스트라이크 " + balls + "볼입니다.";
+    }
+}
+
+function calculateScore(difficulty, attempts, time) {
+    return Math.floor((difficulty * 1000 - attempts * 50 - time) * difficulty);
+}
+
+function updateRanking(userId, score) {
+    if (!rankings[userId] || rankings[userId] < score) {
+        rankings[userId] = score;
+    }
+}
+
+function getHint(userId) {
+    var game = games[userId];
+    if (!game) {
+        return "진행 중인 게임이 없습니다.";
+    }
+    if (game.hints <= 0) {
+        return "힌트를 모두 사용했습니다.";
+    }
+    game.hints--;
+    var hintIndex = Math.floor(Math.random() * game.difficulty);
+    return "힌트: " + (hintIndex + 1) + "번째 숫자는 " + game.answer[hintIndex] + "입니다. (남은 힌트: " + game.hints + ")";
+}
+
+function getRankings() {
+    var sortedRankings = [];
+    for (var userId in rankings) {
+        sortedRankings.push({userId: userId, score: rankings[userId]});
+    }
+    sortedRankings.sort(function(a, b) {
+        return b.score - a.score;
+    });
+    var result = "랭킹 (상위 5명):\n";
+    for (var i = 0; i < Math.min(5, sortedRankings.length); i++) {
+        result += (i + 1) + ". " + sortedRankings[i].userId + ": " + sortedRankings[i].score + "점\n";
+    }
+    return result;
+}
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg === "!숫자야구" || msg.indexOf("!숫자야구 ") === 0) {
+        var difficulty = parseInt(msg.split(" ")[1], 10) || 3;
+        if (difficulty < 3 || difficulty > 5) {
+            replier.reply("난이도는 3에서 5 사이의 숫자여야 합니다.");
+            return;
+        }
+        var result = createGame(sender, difficulty);
+        replier.reply(result);
+    } else if (msg.indexOf("!숫자 ") === 0) {
+        var inputNumbers = msg.split(" ")[1].split("");
+        var numbers = [];
+        for (var i = 0; i < inputNumbers.length; i++) {
+            numbers.push(parseInt(inputNumbers[i], 10));
+        }
+        var game = games[sender];
+        if (!game) {
+            replier.reply("먼저 '!숫자야구'로 게임을 시작해주세요.");
+            return;
+        }
+        if (numbers.length !== game.difficulty || new Set(numbers).size !== game.difficulty || numbers.some(isNaN)) {
+            replier.reply("올바른 형식이 아닙니다. '!숫자 " + "1".repeat(game.difficulty) + "'과 같이 중복되지 않는 " + game.difficulty + "자리 숫자를 입력해주세요.");
+        } else {
+            var result = guess(sender, numbers);
+            replier.reply(result);
+        }
+    } else if (msg === "!숫자야구포기") {
+        if (games[sender]) {
+            var answer = games[sender].answer.join("");
+            delete games[sender];
+            replier.reply("게임을 포기했습니다. 정답은 " + answer + "였습니다.");
+        } else {
+            replier.reply("진행 중인 게임이 없습니다.");
+        }
+    } else if (msg === "!힌트") {
+        var hint = getHint(sender);
+        replier.reply(hint);
+    } else if (msg === "!랭킹") {
+        var rankings = getRankings();
+        replier.reply(rankings);
+    } else if (msg === "!숫자야구도움말") {
+        var helpMessage = 
+            "숫자야구 게임 도움말:\n" +
+            "!숫자야구 [난이도] - 새 게임을 시작합니다. 난이도는 3-5 사이 숫자 (기본값: 3)\n" +
+            "!숫자 [숫자] - 숫자를 추측합니다. 예: !숫자 123\n" +
+            "!힌트 - 힌트를 얻습니다 (게임당 2회 사용 가능)\n" +
+            "!숫자야구포기 - 현재 게임을 포기하고 정답을 봅니다.\n" +
+            "!랭킹 - 상위 5명의 랭킹을 확인합니다.\n" +
+            "!숫자야구도움말 - 이 도움말을 표시합니다.";
+        replier.reply(helpMessage);
+    }
+}
