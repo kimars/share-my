@@ -1,0 +1,175 @@
+var Game = {
+  score: 0,
+  timeLeft: 120,
+  timer: null,
+  weapon: { name: "맨손", damage: 1 },
+  ghosts: [
+    { name: "일반 유령", emoji: "👻", hp: 3, points: 10 },
+    { name: "호박 유령", emoji: "🎃", hp: 5, points: 20 },
+    { name: "해골 유령", emoji: "💀", hp: 7, points: 30 },
+    { name: "박쥐 유령", emoji: "🦇", hp: 2, points: 15 },
+    { name: "악마 유령", emoji: "👿", hp: 10, points: 50 },
+    { name: "유령 고양이", emoji: "🐈‍⬛", hp: 4, points: 25 },
+    { name: "좀비", emoji: "🧟", hp: 8, points: 40 },
+    { name: "늑대인간", emoji: "🐺", hp: 12, points: 60 },
+    { name: "마녀", emoji: "🧙‍♀️", hp: 6, points: 35 },
+    { name: "뱀파이어", emoji: "🧛", hp: 9, points: 45 },
+    { name: "프랑켄슈타인", emoji: "🧟‍♂️", hp: 15, points: 70 },
+    { name: "유령 피에로", emoji: "🤡", hp: 5, points: 30 },
+    { name: "유령 외계인", emoji: "👽", hp: 7, points: 40 },
+    { name: "유령 로봇", emoji: "🤖", hp: 10, points: 55 },
+    { name: "유령 해적", emoji: "🏴‍☠️", hp: 8, points: 45 },
+    { name: "유령 닌자", emoji: "🥷", hp: 6, points: 35 },
+    { name: "유령 드래곤", emoji: "🐉", hp: 20, points: 100 },
+    { name: "유령 유니콘", emoji: "🦄", hp: 8, points: 50 },
+    { name: "유령 인어", emoji: "🧜‍♀️", hp: 7, points: 40 },
+    { name: "유령 요정", emoji: "🧚", hp: 3, points: 20 }
+  ],
+  
+  bosses: [
+    { name: "대악마", emoji: "👹", hp: 50, points: 250 },
+    { name: "유령왕", emoji:"👑" , hp :75 , points :350},
+    { name : "지옥의 문지기" , emoji : "🔥" , hp :100 , points :500}
+   ],
+  
+   prefixes : ["화난" , "슬픈" , "즐거운" , "졸린" , 
+               "배고픈" , "흥분한" , 
+               "지루한" , 
+               "놀란" , 
+               "겁에 질린" , 
+               "혼란스러운"],
+  
+   currentGhost : null,
+   bossSpawned : false,
+  
+   start : function() {
+     this.score =0;
+     this.timeLeft =120;
+     this.weapon = {name:"맨손" , damage :1};
+     this.bossSpawned = false;
+     this.updateScore();
+     this.updateTime();
+     this.timer = setInterval(this.tick.bind(this),1000);
+     this.spawnGhost();
+   },
+
+   tick : function() {
+     this.timeLeft--;
+     this.updateTime();
+     if (this.timeLeft <=0) {
+       this.end();
+     } else if (this.timeLeft ===30 && !this.bossSpawned) {
+       this.spawnBoss();
+     }
+   },
+
+   end : function() {
+     clearInterval(this.timer);
+     replier.reply("게임 종료! 최종 점수:" + this.score);
+   },
+
+   updateScore : function() {
+     replier.reply("현재 점수:" + this.score + "| 무기:" + this.weapon.name);
+   },
+
+   updateTime : function() {
+     replier.reply("남은 시간:" + this.timeLeft + "초");
+   },
+
+   spawnGhost : function() {
+     var ghost = this.ghosts[Math.floor(Math.random() * this.ghosts.length)];
+     var prefix = this.prefixes[Math.floor(Math.random() * this.prefixes.length)];
+     this.currentGhost = {
+       name : prefix + "" + ghost.name,
+       emoji : ghost.emoji,
+       hp : ghost.hp,
+       points : ghost.points
+     };
+     replier.reply(this.currentGhost.emoji + "" + this.currentGhost.name + "(HP:" + this.currentGhost.hp + ") '공격'이라고 입력하세요!");
+   },
+
+   spawnBoss : function() {
+     var boss = this.bosses[Math.floor(Math.random() * this.bosses.length)];
+     this.currentGhost = boss;
+     this.bossSpawned = true;
+     replier.reply("⚠️ 보스 출현 ⚠️\n" + boss.emoji + "" + boss.name + "(HP:" + boss.hp + ") '공격'이라고 입력하세요!");
+   },
+
+   attack : function() {
+     if (!this.currentGhost) return;
+
+     this.currentGhost.hp -= this.weapon.damage;
+     replier.reply(this.weapon.name + "" + this.weapon.damage + 
+                   '데미지를 입혔습니다!');
+
+      if (this.currentGhost.hp <=0) {
+        this.score += this.currentGhost.points;
+        replier.reply(this.currentGhost.name + '을(를) 물리쳤습니다! +' + 
+                      this.currentGhost.points + '점');
+        this.updateScore();
+        if (this.bossSpawned) {
+          this.end();
+        } else {
+          this.spawnGhost();
+        }
+      } else {
+        replier.reply(this.currentGhost.name + '의 남은 HP:' + 
+                      this.currentGhost.hp);
+      }
+   },
+
+   shop : function() {
+     var weapons = [
+       {name:"나무 막대기" , damage :2 , price :50},
+       {name:"은 단검" , damage :3 , price :100},
+       {name:"마법 지팡이" , damage :5 , price :200},
+       {name:"성스러운 검" , damage :7 , price :300},
+       {name:"유령 사냥꾼의 총" , damage :10 , price :500},
+       {name:"드래곤 슬레이어" , damage :15 , price :750},
+       {name:"초월의 무기" , damage :20 , price :1000}
+      ];
+
+      var shopMenu = '상점 메뉴:\n';
+      for (var i=0; i < weapons.length; i++) {
+        shopMenu += (i+1) + '.'+ weapons[i].name +
+                    '(데미지:' + weapons[i].damage +
+                    ', 가격:' + weapons[i].price +
+                    ')\n';
+      }
+      replier.reply(shopMenu +
+                    '\n구매하려면 '!구매 [번호]'를 입력하세요.');
+
+      return weapons;
+   },
+
+   buyWeapon : function(index, weapons) {
+      var selectedWeapon = weapons[index -1];
+      if (this.score >= selectedWeapon.price) {
+        this.score -= selectedWeapon.price;
+        this.weapon = selectedWeapon;
+        replier.reply(selectedWeapon.name +
+                      '을(를) 구매했습니다!');
+        this.updateScore();
+      } else {
+        replier.reply('점수가 부족합니다!');
+      }
+   }
+};
+
+function response(room, msg, sender, isGroupChat, replier) {
+   if (msg === "!할로윈 게임 시작") {
+      Game.start();
+   } else if (msg === "!공격" && Game.timeLeft >0) {
+      Game.attack();
+   } else if (msg === "!상점") {
+      var weapons = Game.shop();
+      Game.lastShopWeapons = weapons;
+   } else if (msg.startsWith("!구매 ") && Game.lastShopWeapons) {
+      var index = parseInt(msg.split(" ")[1]);
+      if (index >0 && index <= Game.lastShopWeapons.length) {
+         Game.buyWeapon(index, Game.lastShopWeapons);
+      } else {
+         replier.reply('올바른 번호를 입력해주세요.');
+      }
+   }
+}
