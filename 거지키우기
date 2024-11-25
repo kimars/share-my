@@ -1,0 +1,163 @@
+var scriptName = "거지키우기";
+var version = "1.0";
+
+// 게임 데이터 저장소
+var gameData = {};
+
+// 상점 아이템 목록 [수정]
+var shopItems = [
+    { name: "업그레이드", type: "upgrade", baseCost: 50, cost: 50, effect: 1 },
+    { name: "작은 집", type: "property", cost: 100000000, income: 50000000 },
+    { name: "아파트", type: "property", cost: 50000000, income: 30000000 },
+    { name: "빌라", type: "property", cost: 100000000, income: 70000000 },
+    { name: "카페", type: "business", cost: 200000000, income: 10000000 },
+    { name: "식당", type: "business", cost: 80000000, income: 50000000 },
+    { name: "편의점", type: "business", cost: 1500000000, income: 1000000 },
+    { name: "호텔", type: "property", cost: 50000000000, income: 300000000 }, // [추가]
+    { name: "백화점", type: "business", cost: 10000000000, income: 500000000 } // [추가]
+];
+
+// 게임 초기화 함수
+function initGame(userId) {
+    if (!gameData[userId]) {
+        gameData[userId] = {
+            money: 0,
+            level: 1,
+            exp: 0,
+            items: [],
+            properties: [],
+            businesses: [],
+            earnMultiplier: 1,
+            upgradeLevel: 0,
+            lastAction: Date.now(),
+            // [추가] 새로운 속성
+            totalIncome: 0,
+            lastIncomeCollection: Date.now()
+        };
+    }
+}
+
+// 돈 벌기 함수
+function earnMoney(userId) {
+    var user = gameData[userId];
+    var earnedMoney = (Math.floor(Math.random() * 10) + 1) * user.earnMultiplier;
+    user.money += earnedMoney;
+    user.exp += 1;
+    checkLevelUp(userId);
+    return earnedMoney;
+}
+
+// 레벨업 체크 함수
+function checkLevelUp(userId) {
+    var user = gameData[userId];
+    if (user.exp >= user.level * 10) {
+        user.level += 1;
+        user.exp = 0;
+        return true;
+    }
+    return false;
+}
+
+// 상점에서 구매 함수 [수정]
+function buyFromShop(userId, itemName) {
+    var user = gameData[userId];
+    var item = shopItems.find(function(i) { return i.name === itemName; });
+    
+    if (!item) {
+        return "존재하지 않는 아이템입니다.";
+    }
+    
+    if (user.money < item.cost) {
+        return "돈이 부족합니다.";
+    }
+    
+    user.money -= item.cost;
+    
+    switch (item.type) {
+        case "upgrade":
+            user.earnMultiplier += item.effect;
+            user.upgradeLevel += 1;
+            item.cost = Math.floor(item.baseCost * Math.pow(1.5, user.upgradeLevel));
+            return item.name + "을(를) 구매하여 돈벌기 배수가 증가했습니다!";
+        case "property":
+            user.properties.push(item.name);
+            user.totalIncome += item.income; // [추가]
+            return item.name + "을(를) 구매했습니다!";
+        case "business":
+            user.businesses.push(item.name);
+            user.totalIncome += item.income; // [추가]
+            return item.name + "을(를) 구매했습니다!";
+        default:
+            return "알 수 없는 아이템 유형입니다.";
+    }
+}
+
+// [추가] 수동 수입 수집 함수
+function collectIncome(userId) {
+    var user = gameData[userId];
+    var now = Date.now();
+    var timeDiff = now - user.lastIncomeCollection;
+    var hoursElapsed = timeDiff / (1000 * 60 * 60);
+    var income = Math.floor(user.totalIncome * hoursElapsed);
+    user.money += income;
+    user.lastIncomeCollection = now;
+    return income;
+}
+
+// 게임 상태 확인 함수 [수정]
+function checkStatus(userId) {
+    var user = gameData[userId];
+    return "레벨: " + user.level + "\n돈: " + user.money + "\n경험치: " + user.exp + 
+           "\n아이템: " + user.items.join(", ") + "\n부동산: " + user.properties.join(", ") + 
+           "\n사업체: " + user.businesses.join(", ") + "\n돈벌기 배수: x" + user.earnMultiplier +
+           "\n시간당 총 수입: " + user.totalIncome;
+}
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    var commands = msg.split(" ");
+    var action = commands[0];
+    var userId = sender;
+
+    initGame(userId);
+
+    switch (action) {
+        case "!돈벌기":
+            var earned = earnMoney(userId);
+            replier.reply(earned + "원을 벌었습니다!");
+            break;
+        case "!상태":
+            var status = checkStatus(userId);
+            replier.reply(status);
+            break;
+        case "!상점":
+            var shopList = shopItems.map(function(item) { 
+                return item.name + ": " + item.cost + "원" + (item.income ? " (시간당 수입: " + item.income + "원)" : "");
+            }).join("\n");
+            replier.reply("상점 목록" + ' '.repeat(500) + shopList);
+            break;
+        case "!구매":
+            if (commands.length < 2) {
+                replier.reply("사용법: !구매 [아이템이름]");
+                return;
+            }
+            var itemName = commands.slice(1).join(" ");
+            var purchaseResult = buyFromShop(userId, itemName);
+            replier.reply(purchaseResult);
+            break;
+        case "!수입수집":
+            var collectedIncome = collectIncome(userId);
+            replier.reply(collectedIncome + "원의 수입을 수집했습니다!");
+            break;
+        case "!거지키우기":
+            var helpText = 
+                "명령어 목록:\n" +
+                "!돈벌기 - 돈을 법니다\n" +
+                "!상태 - 현재 상태를 확인합니다\n" +
+                "!상점 - 상점 목록을 확인합니다\n" +
+                "!구매 [아이템이름] - 상점에서 아이템을 구매합니다\n" +
+                "!수입수집 - 부동산과 사업체에서 발생한 수입을 수집합니다";
+            replier.reply(helpText);
+            break;
+     
+    }
+}
