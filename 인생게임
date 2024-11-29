@@ -1,0 +1,351 @@
+const scriptName = "인생게임";
+const fs = FileStream;
+const path = "/sdcard/인생게임/";
+
+// 데이터 저장 및 불러오기 함수
+function saveData(filename, data) {
+  fs.write(path + filename + ".json", JSON.stringify(data));
+}
+
+function loadData(filename) {
+}
+
+// 사용자 데이터 초기화
+let users = loadData("users") || {};
+
+// 알바 목록
+const jobs = {
+  "편의점": { salary: 9000, time: 4 },
+  "배민": { salary: 15000, time: 3 },
+  "카페": { salary: 10000, time: 4 },
+  "PC방": { salary: 11000, time: 5 },
+  "주유소": { salary: 12000, time: 4 },
+  "영화관": { salary: 10500, time: 5 },
+  "패스트푸드": { salary: 9500, time: 4 },
+  "서점": { price: 9800, time: 5 },
+  "마트": { salary: 10200, time: 6 },
+  "호텔": { salary: 13000, time: 6 }
+};
+
+// 음식 목록
+const foods = {
+  "햄버거": { price: 5000, energy: 3 },
+  "피자": { price: 15000, energy: 5 },
+  "김밥": { price: 3000, energy: 2 },
+  "라면": { price: 4000, energy: 2 },
+  "샐러드": { price: 6000, energy: 3 },
+  "치킨": { price: 18000, energy: 6 },
+  "떡볶이": { price: 5000, energy: 3 },
+  "돈까스": { price: 8000, energy: 4 },
+  "비빔밥": { price: 7000, energy: 4 },
+  "파스타": { price: 12000, energy: 4 },
+  "초밥": { price: 20000, energy: 5 },
+  "삼겹살": { price: 15000, energy: 6 },
+  "쌀국수": { price: 8000, energy: 3 },
+  "짜장면": { price: 6000, energy: 4 },
+  "우동": { price: 7000, energy: 3 },
+  "타코": { price: 9000, energy: 4 },
+  "샌드위치": { price: 5500, energy: 3 },
+  "스테이크": { price: 25000, energy: 7 },
+  "스시": { price: 22000, energy: 5 },
+  "카레": { price: 8000, energy: 4 }
+};
+
+// 자격증 목록
+const certificates = [
+  "정보처리기사", "TOEIC", "한국사능력검정시험", "컴퓨터활용능력", "워드프로세서",
+  "JLPT", "HSK", "요양보호사", "간호조무사", "공인중개사",
+  "운전면허증", "조리기능사", "바리스타", "전기기사", "소방설비기사"
+];
+
+// 집 목록
+const houses = {
+  "원룸": { price: 100000000, rent: 500000 },
+  "투룸": { price: 150000000, rent: 700000 },
+  "쓰리룸": { price: 200000000, rent: 1000000 },
+  "오피스텔": { price: 180000000, rent: 800000 },
+  "아파트": { price: 300000000, rent: 1500000 }
+};
+
+// [수정] 도움말 출력 함수
+function printHelp(replier) {
+  let helpMessage = "╚인생게임 도움말╝" + ' '.repeat(500) + "\n\n";
+  helpMessage += "↳ !회원가입  →  게임에 가입합니다\n";
+  helpMessage += "↳ !알바 [직종]  →  알바를 시작합니다\n";
+  helpMessage += "↳ !대출받기 [금액]  →  대출을 받습니다\n";
+  helpMessage += "↳ !대출갚기  →  대출을 갚습니다\n";
+  helpMessage += "↳ !음식구매  →  음식 목록을 봅니다\n";
+  helpMessage += "↳ !음식구매 [음식명]  →  음식을 구매합니다\n";
+  helpMessage += "↳ !회사면접  →  회사 면접을 봅니다\n";
+  helpMessage += "↳ !일하기  →  회사에서 일을 시작합니다\n";
+  helpMessage += "↳ !월급받기  →  월급을 받습니다\n";
+  helpMessage += "↳ !퇴근  →  회사에서 퇴근합니다\n";
+  helpMessage += "↳ !출근  →  회사에 출근합니다\n";
+  helpMessage += "↳ !자기계발  →  자기계발을 합니다\n";
+  helpMessage += "↳ !집  →  집 정보를 확인합니다\n\n";
+  replier.reply(helpMessage);
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+  if (msg.startsWith("!")) {
+    const command = msg.slice(1).split(" ");
+    
+    switch (command[0]) {
+      case "인생게임":
+        printHelp(replier);
+        break;
+
+      case "회원가입":
+        if (users[sender]) {
+          replier.reply("이미 가입된 회원입니다.");
+        } else {
+          users[sender] = {
+            money: 100000,
+            credit: 500,
+            loan: 0,
+            job: null,
+            energy: 10,
+            company: null,
+            lastWorkDay: null,
+            certificates: [],
+            house: null
+          };
+          saveData("users", users);
+          replier.reply("◇━━ 회원가입 완료 ━━◇\n초기 자금 100,000원이 지급되었습니다.");
+        }
+        break;
+        
+      case "알바":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+        
+        if (users[sender].company) {
+          replier.reply("회사에 다니고 있어 알바를 할 수 없습니다.");
+          return;
+        }
+
+        if (users[sender].energy < 5) {
+          replier.reply("에너지가 부족합니다. 음식을 구매하여 에너지를 보충하세요.");
+          return;
+        }
+
+        const job = command[1];
+        if (jobs[job]) {
+          users[sender].job = job;
+          users[sender].energy -= 5;
+          users[sender].money += jobs[job].salary * jobs[job].time;
+          saveData("users", users);
+          replier.reply("◇━━ 알바 완료 ━━◇\n" + job + " 알바를 완료했습니다.\n수입: " + (jobs[job].salary * jobs[job].time) + "원\n남은 에너지: " + users[sender].energy);
+        } else {
+          // [수정] 알바 목록 출력 방식 변경
+          let jobList = "╚알바 목록╝" + ' '.repeat(500) + "\n\n";
+          for (let j in jobs) {
+            jobList += "● " + j + "\n   └ 시급: " + jobs[j].salary + "원\n   └ 근무시간: " + jobs[j].time + "시간\n\n";
+          }
+          replier.reply(jobList);
+        }
+        break;
+        
+      case "대출받기":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+        
+        const amount = parseInt(command[1]);
+        if (isNaN(amount) || amount <= 0 || amount > 1000000000) {
+          replier.reply("올바른 대출 금액을 입력해주세요. (최대 10억원)");
+          return;
+        }
+        
+        if (users[sender].credit < 300) {
+          replier.reply("신용점수가 300점 미만이라 대출이 불가능합니다.");
+          return;
+        }
+        
+        const interestRate = 5 + Math.random() * 5; // 5~10% 이자율
+        users[sender].loan += amount;
+        users[sender].money += amount;
+        saveData("users", users);
+        replier.reply("◇━━ 대출 완료 ━━◇\n" + amount + "원을 대출받았습니다.\n현재 이자율은 " + interestRate.toFixed(2) + "%입니다.");
+        break;
+        
+      case "대출갚기":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+        
+        if (users[sender].loan === 0) {
+          replier.reply("갚을 대출이 없습니다.");
+          return;
+        }
+        
+        const repayAmount = Math.min(users[sender].money, users[sender].loan);
+        if (repayAmount === 0) {
+          replier.reply("대출을 갚을 돈이 부족합니다.");
+          return;
+        }
+        
+        users[sender].loan -= repayAmount;
+        users[sender].money -= repayAmount;
+        saveData("users", users);
+        replier.reply("◇━━ 대출 상환 ━━◇\n" + repayAmount + "원의 대출을 갚았습니다.\n남은 대출금: " + users[sender].loan + "원");
+        break;
+
+      case "음식구매":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+
+        if (command.length === 1) {
+          // [수정] 음식 목록 출력 방식 변경
+          let foodList = "╚음식 목록╝" + ' '.repeat(500) + "\n\n";
+          for (let food in foods) {
+            foodList += "● " + food + "\n   └ 가격: " + foods[food].price + "원\n   └ 에너지: +" + foods[food].energy + "\n\n";
+          }
+          replier.reply(foodList);
+        } else {
+          const foodName = command.slice(1).join(" ");
+          if (foods[foodName]) {
+            if (users[sender].money >= foods[foodName].price) {
+              users[sender].money -= foods[foodName].price;
+              users[sender].energy += foods[foodName].energy;
+              saveData("users", users);
+              replier.reply("◇━━ 음식 구매 ━━◇\n" + foodName + "을(를) 구매했습니다.\n에너지가 " + foods[foodName].energy + " 증가했습니다.");
+            } else {
+              replier.reply("돈이 부족합니다.");
+            }
+          } else {
+            replier.reply("존재하지 않는 음식입니다.");
+          }
+        }
+        break;
+
+      case "회사면접":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+
+        if (users[sender].company) {
+          replier.reply("이미 회사에 다니고 있습니다.");
+          return;
+        }
+
+        // [수정] 면접 결과 출력 방식 변경
+        let interviewResult = "╚면접 결과╝" + ' '.repeat(500) + "\n\n";
+        interviewResult += "● 이름: " + sender + "\n";
+        interviewResult += "● 신용점수: " + users[sender].credit + "\n";
+        interviewResult += "● 자산: " + users[sender].money + "원\n\n";
+        
+        const passChance = Math.random();
+        if (passChance < 0.3) { // 30% 확률로 합격
+          const salary = Math.floor(5000000 + Math.random() * 2000000);
+          users[sender].company = { name: "행복기업", salary: salary };
+          saveData("users", users);
+          interviewResult += "결과: 합격\n";
+          interviewResult += "월급: " + salary + "원";
+        } else {
+          interviewResult += "결과: 불합격";
+        }
+        replier.reply(interviewResult);
+        break;
+
+      case "일하기":
+        if (!users[sender] || !users[sender].company) {
+          replier.reply("회사에 다니고 있지 않습니다.");
+          return;
+        }
+
+        users[sender].energy -= 5;
+        if (users[sender].energy < 0) users[sender].energy = 0;
+        saveData("users", users);
+        replier.reply("◇━━ 근무 완료 ━━◇\n회사에서 일했습니다.\n남은 에너지: " + users[sender].energy);
+        break;
+
+            case "월급받기":
+        if (!users[sender] || !users[sender].company) {
+          replier.reply("회사에 다니고 있지 않습니다.");
+          return;
+        }
+
+        const today = new Date().toDateString();
+        if (users[sender].lastWorkDay === today) {
+          replier.reply("오늘 이미 월급을 받았습니다.");
+          return;
+        }
+
+        users[sender].money += users[sender].company.salary;
+        users[sender].lastWorkDay = today;
+        saveData("users", users);
+        replier.reply("◇━━ 월급 지급 ━━◇\n월급 " + users[sender].company.salary + "원을 받았습니다.");
+        break;
+
+      case "퇴근":
+        if (!users[sender] || !users[sender].company) {
+          replier.reply("회사에 다니고 있지 않습니다.");
+          return;
+        }
+
+        users[sender].energy = 10; // 에너지 완전 회복
+        saveData("users", users);
+        replier.reply("◇━━ 퇴근 완료 ━━◇\n퇴근했습니다. 에너지가 완전히 회복되었습니다.");
+        break;
+
+      case "출근":
+        if (!users[sender] || !users[sender].company) {
+          replier.reply("회사에 다니고 있지 않습니다.");
+          return;
+        }
+
+        replier.reply("◇━━ 출근 완료 ━━◇\n출근했습니다. 일하기 위해 '!일하기' 명령어를 사용하세요.");
+        break;
+
+      case "자기계발":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+
+        if (Math.random() < 0.3) { // 30% 확률로 자격증 취득
+          const newCertificate = certificates[Math.floor(Math.random() * certificates.length)];
+          if (!users[sender].certificates.includes(newCertificate)) {
+            users[sender].certificates.push(newCertificate);
+            saveData("users", users);
+            replier.reply("◆━━ 자기계발 성공 ━━◆\n축하합니다! " + newCertificate + " 자격증을 취득했습니다!");
+          } else {
+            replier.reply("◇━━ 자기계발 결과 ━━◇\n자기계발에 힘썼지만 새로운 자격증을 취득하지 못했습니다.");
+          }
+        } else {
+          replier.reply("◇━━ 자기계발 결과 ━━◇\n자기계발에 힘썼지만 특별한 성과는 없었습니다.");
+        }
+        break;
+
+      case "집":
+        if (!users[sender]) {
+          replier.reply("먼저 회원가입을 해주세요.");
+          return;
+        }
+
+        if (users[sender].house) {
+          replier.reply("◇━━ 현재 소유 주택 ━━◇\n" + users[sender].house);
+        } else {
+          // [수정] 집 목록 출력 방식 변경
+          let houseList = "◆━━ 구매 가능한 집 목록 ━━◆" + ' '.repeat(500) + "\n\n";
+          for (let house in houses) {
+            houseList += "● " + house + "\n   └ 가격: " + houses[house].price + "원\n   └ 월세: " + houses[house].rent + "원\n\n";
+          }
+          replier.reply(houseList);
+        }
+        break;
+    }
+  }
+}
+
+function onStartCompile() {
+  // 컴파일 시 실행할 코드
+}
