@@ -1,0 +1,23 @@
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg.startsWith("!홀짝")) {
+        let args = msg.split(" ");
+        if (args.length !== 2) {
+            replier.reply("사용법: !홀짝 [홀/짝]");
+            return;
+        }
+
+        let userChoice = args[1];
+        if (userChoice !== "홀" && userChoice !== "짝") {
+            replier.reply("홀 또는 짝만 선택 가능합니다.");
+            return;
+        }
+
+        // 랜덤 결과 생성 (0: 홀, 1: 짝)
+        let randomResult = Math.random() < 0.5 ? "홀" : "짝";
+        
+        let message = "결과: " + randomResult + "\n";
+        message += userChoice === randomResult ? "축하합니다! 승리하셨습니다." : "아쉽네요. 패배하셨습니다.";
+        
+        replier.reply(message);
+    }
+}
