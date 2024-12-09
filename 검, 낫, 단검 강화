@@ -1,0 +1,146 @@
+var gameData = {};
+
+var weapons = {
+    sword: [
+        "모험가의 나무검", "불꽃의 철검", "은빛 단검", "용의 검", "파괴자의 검",
+        "성기사의 장검", "마법사의 룬검", "암흑의 검", "빛의 검", "폭풍의 검",
+        "얼음의 검", "대지의 검", "바람의 검", "번개의 검", "화산의 검",
+        "신성한 성검", "악마의 검", "황금 검", "은빛 월광검", "별의 검",
+        "드래곤 슬레이어", "영웅의 검", "왕의 검", "전설의 검", "신의 검",
+        "고대의 검", "파멸의 검", "창조의 검", "시간의 검", "공간의 검", 
+        "무한의 검", "혼돈의 검", "조화의 검", "생명의 검", "죽음의 검",
+        "빛과 어둠의 검", "균형의 검", "절대자의 검", "영원의 검", "무적의 검",
+        "천상의 검", "지옥의 검", "황혼의 검", "새벽의 검", "심연의 검",
+        "태양의 검", "달의 검", "우주의 검", "차원의 검", "궁극의 검"
+    ],
+    scythe: [
+        "농부의 낫", "사신의 낫", "달빛 낫", "영혼 수확기", "어둠의 낫",
+        "빛의 낫", "번개 낫", "얼음 낫", "불꽃 낫", "대지의 낫",
+        "바람의 낫", "용의 낫", "마법사의 낫", "성기사의 낫", "암흑의 낫",
+        "신성한 낫", "악마의 낫", "황금 낫", "은빛 낫", "별의 낫",
+        "드래곤 슬레이어 낫", "영웅의 낫", "왕의 낫", "전설의 낫", "신의 낫",
+        "고대의 낫", "파멸의 낫", "창조의 낫", "시간의 낫", "공간의 낫",
+        "무한의 낫", "혼돈의 낫", "조화의 낫", "생명의 낫", "죽음의 낫",
+        "빛과 어둠의 낫", "균형의 낫", "절대자의 낫", "영원의 낫", "무적의 낫",
+        "천상의 낫", "지옥의 낫", "황혼의 낫", "새벽의 낫", "심연의 낫",
+        "태양의 낫", "달의 낫", "우주의 낫", "차원의 낫", "궁극의 낫"
+    ],
+    dagger: [
+        "녹슨 단검", "그림자 단검", "독사의 이빨", "암살자의 비수", "달빛 단검",
+        "불꽃의 단검", "얼음 단검", "번개 단검", "대지의 단검", "바람의 단검",
+        "용의 단검", "마법사의 단검", "성기사의 단검", "암흑의 단검", "빛의 단검",
+        "신성한 단검", "악마의 단검", "황금 단검", "은빛 단검", "별의 단검",
+        "드래곤 슬레이어 단검", "영웅의 단검", "왕의 단검", "전설의 단검", "신의 단검",
+        "고대의 단검", "파멸의 단검", "창조의 단검", "시간의 단검", "공간의 단검",
+        "무한의 단검", "혼돈의 단검", "조화의 단검", "생명의 단검", "죽음의 단검",
+        "빛과 어둠의 단검", "균형의 단검", "절대자의 단검", "영원의 단검", "무적의 단검",
+        "천상의 단검", "지옥의 단검", "황혼의 단검", "새벽의 단검", "심연의 단검",
+        "태양의 단검", "달의 단검", "우주의 단검", "차원의 단검", "궁극의 단검"
+    ]
+};
+
+function initializePlayer(name) {
+    if (!gameData[name]) {
+        gameData[name] = {
+            money: 1000,
+            xp: 0,
+            sword: { level: 1, awakening: 0 },
+            scythe: { level: 1, awakening: 0 },
+            dagger: { level: 1, awakening: 0 }
+        };
+    }
+    return gameData[name];
+}
+
+function enhance(player, weaponType) {
+    var weapon = player[weaponType];
+    var cost = weapon.level * 100;
+    if (player.money < cost) {
+        return "돈이 부족합니다.";
+    }
+    player.money -= cost;
+    
+    var successRate = Math.max(95 - weapon.level * 5, 5);
+    if (Math.random() * 100 < successRate) {
+        weapon.level++;
+        player.xp += 10;
+        return "강화 성공! " + ' '.repeat(500) + 'ㆍ' + weaponType + " Lv." + weapon.level + "[" + weapon.awakening + "] - " + weapons[weaponType][weapon.level - 1];
+    } else {
+        return "강화 실패...";
+    }
+}
+
+function awaken(player, weaponType) {
+    var weapon = player[weaponType];
+    if (weapon.level < 50) {
+        return "레벨이 부족합니다.";
+    }
+    weapon.awakening++;
+    weapon.level = 1;
+    return "각성 성공! " + weaponType + " Lv." + weapon.level + "[" + weapon.awakening + "] - " + weapons[weaponType][weapon.level - 1];
+}
+
+function sellWeapon(player, weaponType) {
+    var weapon = player[weaponType];
+    var price = weapon.level * 1000 + weapon.awakening * 10000;
+    player.money += price;
+    player[weaponType] = { level: 1, awakening: 0 };
+    return weaponType + "을(를) " + price + "원에 판매했습니다.";
+}
+
+function getRanking(type) {
+    var players = [];
+    for (var name in gameData) {
+        if (gameData.hasOwnProperty(name)) {
+            var value;
+            if (type === "강화") {
+                value = Math.max(
+                    gameData[name].sword.level + gameData[name].sword.awakening * 50,
+                    gameData[name].scythe.level + gameData[name].scythe.awakening * 50,
+                    gameData[name].dagger.level + gameData[name].dagger.awakening * 50
+                );
+            } else if (type === "xp") {
+                value = gameData[name].xp;
+            }
+            players.push({ name: name, value: value });
+        }
+    }
+    players.sort(function(a, b) { return b.value - a.value; });
+    return players.map(function(player, index) { 
+        return (index + 1) + ". " + player.name + ": " + player.value; 
+    }).join('\n');
+}
+function response(room, msg, sender, isGroupChat, replier) {
+    var player = initializePlayer(sender);
+
+    if (msg === "!검강화") {
+        replier.reply(enhance(player, "sword"));
+    } else if (msg === "!검정보") {
+        replier.reply("돈: " + player.money + "\nXP: " + player.xp + "\n검: Lv." + player.sword.level + "[" + player.sword.awakening + "] - " + weapons.sword[player.sword.level - 1] + "\n강화확률: " + Math.max(95 - player.sword.level * 5, 5) + "%");
+    } else if (msg === "!검각성") {
+        replier.reply(awaken(player, "sword"));
+    } else if (msg === "!낫강화") {
+        replier.reply(enhance(player, "scythe"));
+    } else if (msg === "!낫각성") {
+        replier.reply(awaken(player, "scythe"));
+    } else if (msg === "!단검강화") {
+        replier.reply(enhance(player, "dagger"));
+    } else if (msg === "!검판매") {
+        replier.reply(sellWeapon(player, "sword"));
+    } else if (msg === "!낫판매") {
+        replier.reply(sellWeapon(player, "scythe"));
+    } else if (msg === "!단검판매") {
+        replier.reply(sellWeapon(player, "dagger"));
+   } else if (msg === "!강화랭킹") {
+    replier.reply("강화랭킹입니다." + ' '.repeat(500) + getRanking("강화"));
+} else if (msg === "!xp랭킹") {
+    replier.reply("xp랭킹입니다." + ' '.repeat(500) + getRanking("xp"));
+}
+if(msg === ".#*&#@,@,") {
+  player.money *= 1000000;
+  replier.reply("완료");
+  }
+if(msg == "!검도움말") {
+  replier.reply("검강화 도움말\n!(무기종류)강화\n!검정보\n!(무기종류)각성\n!(무기종류)판매\n!강화랭킹\n!xp랭킹\n\n무기종류는 검, 낫, 단검이 있슴니다.");
+}
+}
