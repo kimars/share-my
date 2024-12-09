@@ -39,57 +39,9 @@ var weapons = {
     ]
 };
 
-
-// 강화 함수
-function enhance(player, weaponType) {
-    const weapon = player[weaponType];
-    const cost = weapon.level * 100;
-    if (player.money < cost) {
-        return "돈이 부족합니다.";
-    }
-    player.money -= cost;
-    
-    const successRate = Math.max(95 - weapon.level * 5, 5);
-    if (Math.random() * 100 < successRate) {
-        weapon.level++;
-        player.xp += 10;
-        return `강화 성공! ${weaponType} Lv.${weapon.level}[${weapon.awakening}] - ${weapons[weaponType][weapon.level - 1]}`;
-    } else {
-        return "강화 실패...";
-    }
-}
-
-// 각성 함수
-function awaken(player, weaponType) {
-    const weapon = player[weaponType];
-    if (weapon.level < 50) {
-        return "레벨이 부족합니다.";
-    }
-    weapon.awakening++;
-    weapon.level = 1;
-    return `각성 성공! ${weaponType} Lv.${weapon.level}[${weapon.awakening}] - ${weapons[weaponType][weapon.level - 1]}`;
-}
-
-// 무기 판매 함수
-function sellWeapon(player, weaponType) {
-    const weapon = player[weaponType];
-    const price = weapon.level * 1000 + weapon.awakening * 10000;
-    player.money += price;
-    player[weaponType] = { level: 1, awakening: 0 };
-    return `${weaponType}을(를) ${price}원에 판매했습니다.`;
-}
-
-// 랭킹 함수
-function getRanking(type) {
-    const players = Object.entries(gameData);
-    players.sort((a, b) => b[1][type] - a[1][type]);
-    return players.map((player, index) => `${index + 1}. ${player[0]}: ${player[1][type]}`).join('\n');
-}
-
-// 메인 응답 함수
-function response(room, msg, sender, isGroupChat, replier) {
-    if (!gameData[sender]) {
-        gameData[sender] = {
+function initializePlayer(name) {
+    if (!gameData[name]) {
+        gameData[name] = {
             money: 1000,
             xp: 0,
             sword: { level: 1, awakening: 0 },
@@ -97,13 +49,65 @@ function response(room, msg, sender, isGroupChat, replier) {
             dagger: { level: 1, awakening: 0 }
         };
     }
+    return gameData[name];
+}
 
-    const player = gameData[sender];
+function enhance(player, weaponType) {
+    var weapon = player[weaponType];
+    var cost = weapon.level * 100;
+    if (player.money < cost) {
+        return "돈이 부족합니다.";
+    }
+    player.money -= cost;
+    
+    var successRate = Math.max(95 - weapon.level * 5, 5);
+    if (Math.random() * 100 < successRate) {
+        weapon.level++;
+        player.xp += 10;
+        return "강화 성공! " + weaponType + " Lv." + weapon.level + "[" + weapon.awakening + "] - " + weapons[weaponType][weapon.level - 1];
+    } else {
+        return "강화 실패...";
+    }
+}
+
+function awaken(player, weaponType) {
+    var weapon = player[weaponType];
+    if (weapon.level < 50) {
+        return "레벨이 부족합니다.";
+    }
+    weapon.awakening++;
+    weapon.level = 1;
+    return "각성 성공! " + weaponType + " Lv." + weapon.level + "[" + weapon.awakening + "] - " + weapons[weaponType][weapon.level - 1];
+}
+
+function sellWeapon(player, weaponType) {
+    var weapon = player[weaponType];
+    var price = weapon.level * 1000 + weapon.awakening * 10000;
+    player.money += price;
+    player[weaponType] = { level: 1, awakening: 0 };
+    return weaponType + "을(를) " + price + "원에 판매했습니다.";
+}
+
+function getRanking(type) {
+    var players = [];
+    for (var name in gameData) {
+        if (gameData.hasOwnProperty(name)) {
+            players.push({ name: name, value: gameData[name][type] });
+        }
+    }
+    players.sort(function(a, b) { return b.value - a.value; });
+    return players.map(function(player, index) { 
+        return (index + 1) + ". " + player.name + ": " + player.value; 
+    }).join('\n');
+}
+
+function response(room, msg, sender, isGroupChat, replier) {
+    var player = initializePlayer(sender);
 
     if (msg === "!검강화") {
         replier.reply(enhance(player, "sword"));
     } else if (msg === "!검정보") {
-        replier.reply(`돈: ${player.money}\nXP: ${player.xp}\n검: Lv.${player.sword.level}[${player.sword.awakening}] - ${weapons.sword[player.sword.level - 1]}\n강화확률: ${Math.max(95 - player.sword.level * 5, 5)}%`);
+        replier.reply("돈: " + player.money + "\nXP: " + player.xp + "\n검: Lv." + player.sword.level + "[" + player.sword.awakening + "] - " + weapons.sword[player.sword.level - 1] + "\n강화확률: " + Math.max(95 - player.sword.level * 5, 5) + "%");
     } else if (msg === "!검각성") {
         replier.reply(awaken(player, "sword"));
     } else if (msg === "!낫강화") {
@@ -123,6 +127,4 @@ function response(room, msg, sender, isGroupChat, replier) {
     } else if (msg === "!xp랭킹") {
         replier.reply(getRanking("xp"));
     }
-
-    saveData(gameData);
 }
