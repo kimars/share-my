@@ -1,0 +1,198 @@
+
+const fs = FileStream;
+
+// 게임 데이터 저장 파일
+const GAME_DATA_FILE = "이세계마법사_게임데이터.json";
+
+// 기본 게임 데이터 구조
+const defaultGameData = {
+    players: {}
+};
+
+// 지팡이 목록 (50가지)
+const WANDS = [
+    "초보자의 지팡이", "견습 마법사의 지팡이", "중급 마법사의 지팡이", "고급 마법사의 지팡이", "대마법사의 지팡이",
+    "불의 지팡이", "물의 지팡이", "바람의 지팡이", "대지의 지팡이", "번개의 지팡이",
+    "빛의 지팡이", "어둠의 지팡이", "시간의 지팡이", "공간의 지팡이", "생명의 지팡이",
+    "죽음의 지팡이", "혼돈의 지팡이", "질서의 지팡이", "창조의 지팡이", "파괴의 지팡이",
+    "환상의 지팡이", "현실의 지팡이", "지식의 지팡이", "무지의 지팡이", "사랑의 지팡이",
+    "증오의 지팡이", "용기의 지팡이", "공포의 지팡이", "희망의 지팡이", "절망의 지팡이",
+    "행운의 지팡이", "불운의 지팡이", "풍요의 지팡이", "빈곤의 지팡이", "건강의 지팡이",
+    "질병의 지팡이", "젊음의 지팡이", "노화의 지팡이", "기억의 지팡이", "망각의 지팡이",
+    "진실의 지팡이", "거짓의 지팡이", "꿈의 지팡이", "악몽의 지팡이", "영웅의 지팡이",
+    "악당의 지팡이", "천상의 지팡이", "지옥의 지팡이", "균형의 지팡이", "혼란의 지팡이"
+];
+
+// 스토리 목록
+const STORIES = [
+    "마력스토리 1" + ' '.repeat(500) + "당신은 평범한 직장인이었습니다. 어느 날 퇴근길, 갑자기 눈앞이 환해지더니 이세계로 이동하게 되었습니다. 이세계를 정확히 파악한 당신은 수련을 시작합니다.",
+    "마력 스토리2" + ' '.repeat(500) + "이세계가 처음인 당신은 수련을 열심히해서 마력을 조금씩 모으고있다..",
+    "마력 10,000을 달성하셨습니다! 왕국의 마법 학교에서 당신을 교수로 초빙했습니다. 이제 당신은 후학 양성에도 힘쓰고 있습니다.",
+    "마력스토리 3" + ' '.repeat(500) + "직장인이였던것인 당신은 10년쨰 수련을 진행하고있습니다. 그누구도 당신을 밑힌놈으로 보고 안타까워 하고있습니다. 히든보스 '니얼굴' 을 쓰러트려 코를 납작만두로 만들어 줍시다!",
+    "마력스토리 4" + ' '.repeat(500) + "당신은 지나가던 노숙자 할아버지의 조언을 듣고 다른 이세계인들과 싸워 마법지팡이를 약탈(?) 합니다.",
+    "마력스토리 5"  + ' '.repeat(500) + "이제 스토리 쓰기 귀찮다. 알아서 수련하셈 ㅇㅇ",
+    "마력스토리 6" + ' '.repeat(500) + "열심히 수련중이니까 방해하지마세요 아저씨;;",
+    "마지막 스토리" + ' '.repeat(500) + "히든보스나 죽이러 가세요;;"];
+
+// 게임 데이터 로드
+function loadGameData() {
+    let data = defaultGameData;
+    try {
+        if (fs.read(GAME_DATA_FILE)) {
+            data = JSON.parse(fs.read(GAME_DATA_FILE));
+        }
+    } catch (e) {
+        Log.e("게임 데이터 로드 중 오류 발생: " + e);
+    }
+    return data;
+}
+
+// 게임 데이터 저장
+function saveGameData(data) {
+    try {
+        fs.write(GAME_DATA_FILE, JSON.stringify(data));
+    } catch (e) {
+        Log.e("게임 데이터 저장 중 오류 발생: " + e);
+    }
+}
+
+// 플레이어 데이터 가져오기
+function getPlayerData(sender) {
+    let gameData = loadGameData();
+    if (!gameData.players[sender]) {
+        gameData.players[sender] = {
+            magic: 0,
+            money: 1000,
+            wand: WANDS[0],
+            wins: 0,
+            losses: 0,
+            lastTraining: 0
+        };
+        saveGameData(gameData);
+    }
+    return gameData.players[sender];
+}
+
+// 플레이어 데이터 업데이트
+function updatePlayerData(sender, newData) {
+    let gameData = loadGameData();
+    gameData.players[sender] = newData;
+    saveGameData(gameData);
+}
+
+// 마법 수련
+function trainMagic(sender) {
+    let playerData = getPlayerData(sender);
+    let currentTime = Date.now();
+    
+    if (currentTime - playerData.lastTraining < 5000) {
+        return "마법 수련은 5초에 한 번만 가능합니다. 잠시 후 다시 시도해주세요.";
+    }
+    
+    let wandIndex = WANDS.indexOf(playerData.wand);
+    // [수정] 성공 확률을 100%로 변경
+    let successRate = 100;
+    let magicIncrease = Math.floor(Math.random() * (wandIndex + 1) * 10) + 1;
+    
+    // [수정] 항상 성공하도록 조건문 제거
+    playerData.magic += magicIncrease;
+    playerData.lastTraining = currentTime;
+    updatePlayerData(sender, playerData);
+    return "마법 수련에 성공했습니다! 마력이 " + magicIncrease + " 증가했습니다. 현재 마력: " + playerData.magic;
+}
+
+// 상점
+function shop(sender) {
+    let playerData = getPlayerData(sender);
+    let currentWandIndex = WANDS.indexOf(playerData.wand);
+    let nextWandIndex = currentWandIndex + 1;
+    
+    if (nextWandIndex >= WANDS.length) {
+        return "이미 최고급 지팡이를 소지하고 있습니다.";
+    }
+    
+    let nextWand = WANDS[nextWandIndex];
+    let price = (nextWandIndex + 1) * 1000;
+    
+    if (playerData.money < price) {
+        return "재화(이세계)가 부족합니다. 필요한 금액: " + price + " 이세계";
+    }
+    
+    playerData.money -= price;
+    playerData.wand = nextWand;
+    updatePlayerData(sender, playerData);
+    
+    return nextWand + "를 구매했습니다! 남은 재화: " + playerData.money + " 이세계";
+}
+
+// 마력 대결
+function magicBattle(sender) {
+    let playerData = getPlayerData(sender);
+    let opponentMagic = Math.floor(Math.random() * playerData.magic * 2);
+    
+    if (playerData.magic > opponentMagic) {
+        playerData.wins++;
+        playerData.money += 100;
+        updatePlayerData(sender, playerData);
+        return "마력 대결에서 승리했습니다! 상금 100 이세계를 획득했습니다.\n당신의 마력: " + playerData.magic + "\n상대의 마력: " + opponentMagic;
+    } else {
+        playerData.losses++;
+        updatePlayerData(sender, playerData);
+        return "마력 대결에서 패배했습니다.\n당신의 마력: " + playerData.magic + "\n상대의 마력: " + opponentMagic;
+    }
+}
+
+// 상태 확인
+function checkStatus(sender) {
+    let playerData = getPlayerData(sender);
+    return "현재 상태:\n마력: " + playerData.magic + "\n재화: " + playerData.money + " 이세계\n지팡이: " + playerData.wand + "\n승리: " + playerData.wins + "회\n패배: " + playerData.losses + "회";
+}
+
+// 스토리 보기
+function viewStory(sender) {
+    let playerData = getPlayerData(sender);
+    let storyIndex = Math.floor(Math.log10(Math.max(playerData.magic, 1)));
+    if (storyIndex >= STORIES.length) {
+        storyIndex = STORIES.length - 1;
+    }
+    return STORIES[storyIndex];
+}
+
+// 비밀 보스 전투
+function secretBossBattle(sender) {
+    let playerData = getPlayerData(sender);
+    if (playerData.magic < 10000000000) {
+        return "아직 비밀 보스에 도전할 만큼 강해지지 않았습니다. 더 수련하세요.";
+    }
+    
+    let bossHealth = 20000000000;
+    let playerDamage = Math.floor(Math.random() * (playerData.magic / 1000000000)) + 1;
+    
+    if (playerDamage > bossHealth) {
+        return "축하합니다! 비밀 보스를 물리치고 게임을 클리어하셨습니다. 이제 당신은 이세계의 절대자가 되었습니다. 새로운 모험을 시작하세요!";
+    } else {
+        // 게임 데이터 초기화
+        let gameData = loadGameData();
+        delete gameData.players[sender];
+        saveGameData(gameData);
+        return "비밀 보스와의 전투에서 패배했습니다. 당신의 모든 것이 무로 돌아갔습니다. 처음부터 다시 시작하세요.";
+    }
+}
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg.startsWith("!마법수련")) {
+        replier.reply(trainMagic(sender));
+    } else if (msg.startsWith("!상점")) {
+        replier.reply(shop(sender));
+    } else if (msg.startsWith("!마력대결")) {
+        replier.reply(magicBattle(sender));
+    } else if (msg.startsWith("!상태")) {
+        replier.reply(checkStatus(sender));
+    } else if (msg.startsWith("!스토리")) {
+        replier.reply(viewStory(sender));
+    } else if (msg.startsWith("!비밀보스")) {
+        replier.reply(secretBossBattle(sender));
+    } else if (msg == "!이세계") {
+        replier.reply("!마법수련\n!상점\n!마력대결\n!상태\n!스토리");
+    }
+    }
