@@ -1,0 +1,74 @@
+var scriptName = "LevelBot";
+
+// 사용자 데이터를 저장할 객체
+var userData = {};
+
+// 데이터베이스에서 데이터 로드
+function loadData() {
+    var data = DataBase.getDataBase("chat_level_data");
+    if (data) {
+        userData = JSON.parse(data);
+    } else {
+        userData = {};
+    }
+}
+
+// 데이터를 데이터베이스에 저장
+function saveData() {
+    DataBase.setDataBase("chat_level_data", JSON.stringify(userData));
+}
+
+// 초기 데이터 로드
+loadData();
+
+function response(room, msg, sender, isGroupChat, replier) {
+    // 사용자 데이터 초기화
+    if (!userData[sender]) {
+        userData[sender] = { chatCount: 0, level: 1 };
+    }
+
+    // 채팅 카운트 증가
+    userData[sender].chatCount++;
+
+    // 레벨 업 체크
+    if (userData[sender].chatCount % 100 === 0) {
+        userData[sender].level++;
+        replier.reply(sender + "님의 채팅 레벨이 " + userData[sender].level + "로 올랐습니다!");
+    }
+
+    // 명령어 처리
+    if (msg === "!레벨") {
+        var userInfo = userData[sender];
+        var nextLevelChat = 100 - (userInfo.chatCount % 100);
+        replier.reply(sender + "님의 채팅 레벨: " + userInfo.level + "\n다음 레벨까지 남은 채팅 수: " + nextLevelChat);
+    } else if (msg === "!랭킹") {
+        var ranking = [];
+        for (var key in userData) {
+            if (userData.hasOwnProperty(key)) {
+                ranking.push({ name: key, level: userData[key].level, chatCount: userData[key].chatCount });
+            }
+        }
+        
+        ranking.sort(function(a, b) {
+            return b.level - a.level || b.chatCount - a.chatCount;
+        });
+
+        var rankingMessage = "채팅 레벨 랭킹 (상위 5명)\n";
+        for (var i = 0; i < Math.min(ranking.length, 5); i++) {
+            rankingMessage += (i + 1) + ". " + ranking[i].name + ": Lv." + ranking[i].level + " (" + ranking[i].chatCount + "채팅)\n";
+        }
+        
+        replier.reply(rankingMessage);
+    }
+
+    // 데이터 저장
+    saveData();
+}
+
+// 주기적으로 데이터를 저장하는 함수
+function periodicSave() {
+    saveData();
+}
+
+// 5분마다 데이터 저장
+setInterval(periodicSave, 5 * 60 * 1000);
