@@ -1,0 +1,93 @@
+const scriptName = "출석체크";
+
+// 출석 데이터를 저장할 객체
+var attendanceData = {};
+
+// 데이터베이스에서 데이터 로드
+function loadData() {
+    var data = DataBase.getDataBase("attendance_data");
+    if (data) {
+        attendanceData = JSON.parse(data);
+    } else {
+        attendanceData = {};
+    }
+}
+
+// 데이터를 데이터베이스에 저장
+function saveData() {
+    DataBase.setDataBase("attendance_data", JSON.stringify(attendanceData));
+}
+
+// 오늘 날짜를 문자열로 반환
+function getToday() {
+    var today = new Date();
+    return today.getFullYear() + "/" + (today.getMonth() + 1) + "/" + today.getDate();
+}
+
+// 출석 체크 함수
+function checkAttendance(sender) {
+    var today = getToday();
+    if (!attendanceData[today]) {
+        attendanceData[today] = [];
+    }
+    
+    if (attendanceData[today].indexOf(sender) === -1) {
+        attendanceData[today].push(sender);
+        saveData();
+        return attendanceData[today].length;
+    }
+    return -1;
+}
+
+// 일일 출석 순위 조회
+function getDailyRanking() {
+    var today = getToday();
+    if (!attendanceData[today] || attendanceData[today].length === 0) {
+        return "오늘 출석한 사람이 없습니다.";
+    }
+    
+    return attendanceData[today].map(function(user, index) {
+        return (index + 1) + "등: " + user;
+    }).join("\n");
+}
+
+// 총 출석 순위 조회
+function getTotalRanking() {
+    var totalAttendance = {};
+    
+    for (var date in attendanceData) {
+        attendanceData[date].forEach(function(user) {
+            totalAttendance[user] = (totalAttendance[user] || 0) + 1;
+        });
+    }
+    
+    var sortedRanking = Object.keys(totalAttendance).sort(function(a, b) {
+        return totalAttendance[b] - totalAttendance[a];
+    }).map(function(user, index) {
+        return (index + 1) + "등: " + user + " (" + totalAttendance[user] + "회)";
+    }).join("\n");
+    
+    return sortedRanking || "출석 기록이 없습니다.";
+}
+
+// 초기 데이터 로드
+loadData();
+
+// 응답 함수
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg === "ㅊㅊ" || msg === "출첵") {
+        var rank = checkAttendance(sender);
+        if (rank !== -1) {
+            var today = new Date();
+            var dateString = getToday() + "(" + ["일", "월", "화", "수", "목", "금", "토"][today.getDay()] + ")";
+            var replyMessage = "◇ [" + sender + "]님 출석 체크\n◆ 날짜 : " + dateString + "\n◆ 순위 : " + rank + "등";
+            replier.reply(replyMessage);
+        } else {
+            replier.reply(sender + "님은 이미 출석체크를 하셨습니다.");
+        }
+    } else if (msg === "!일출") {
+        replier.reply("오늘의 출석 순위:\n" + getDailyRanking());
+    } else if (msg === "!출석순위") {
+        replier.reply("총 출석 순위:\n" + getTotalRanking());
+    }
+}
