@@ -1,0 +1,154 @@
+var scriptName = "FishingBot";
+
+// 사용자 데이터를 저장할 객체
+var userData = {};
+
+// 물고기 데이터
+var fishData = {
+    1: {name: "멸치", price: 10, rarity: "일반"},
+    2: {name: "고등어", price: 50, rarity: "일반"},
+    3: {name: "참치", price: 100, rarity: "희귀"},
+    4: {name: "상어", price: 500, rarity: "전설"},
+    5: {name: "금붕어", price: 1000, rarity: "신화"}
+};
+
+// 낚싯대 데이터
+var rodData = {
+    1: {name: "나무 낚싯대", price: 100, catchRate: 0.5},
+    2: {name: "철 낚싯대", price: 500, catchRate: 0.7},
+    3: {name: "금 낚싯대", price: 1000, catchRate: 0.9}
+};
+
+// 데이터베이스에서 데이터 로드
+function loadData() {
+    var data = DataBase.getDataBase("fishing_data");
+    if (data) {
+        userData = JSON.parse(data);
+    } else {
+        userData = {};
+    }
+}
+
+// 데이터를 데이터베이스에 저장
+function saveData() {
+    DataBase.setDataBase("fishing_data", JSON.stringify(userData));
+}
+
+// 초기 데이터 로드
+loadData();
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (!userData[sender]) {
+        userData[sender] = { money: 1000, rod: 1, inventory: {} };
+    }
+
+    if (msg === "!낚시") {
+        var result = fishing(sender);
+        replier.reply(result);
+    } else if (msg === "!내정보") {
+        var info = getUserInfo(sender);
+        replier.reply(info);
+    } else if (msg === "!낚시도움말") {
+        var help = getHelpMessage();
+        replier.reply(help);
+    } else if (msg === "!낚시상점") {
+        var shop = getShopInfo();
+        replier.reply(shop);
+    } else if (msg.startsWith("!낚싯대구매 ")) {
+        var rodNumber = parseInt(msg.split(" ")[1]);
+        var result = buyRod(sender, rodNumber);
+        replier.reply(result);
+    } else if (msg === "!물고기목록") {
+        var fishList = getFishList();
+        replier.reply(fishList);
+    }
+
+    saveData();
+}
+
+function fishing(sender) {
+    var user = userData[sender];
+    var rod = rodData[user.rod];
+    if (Math.random() < rod.catchRate) {
+        var fish = getRandomFish();
+        if (!user.inventory[fish.name]) {
+            user.inventory[fish.name] = 0;
+        }
+        user.inventory[fish.name]++;
+        user.money += fish.price;
+        return sender + "님이 " + fish.name + "을(를) 잡았습니다! +" + fish.price + "원";
+    } else {
+        return sender + "님, 물고기를 놓쳤습니다...";
+    }
+}
+
+function getRandomFish() {
+    var rand = Math.random();
+    if (rand < 0.5) return fishData[1];
+    if (rand < 0.8) return fishData[2];
+    if (rand < 0.95) return fishData[3];
+    if (rand < 0.99) return fishData[4];
+    return fishData[5];
+}
+
+function getUserInfo(sender) {
+    var user = userData[sender];
+    var rod = rodData[user.rod];
+    var info = sender + "님의 정보\n";
+    info += "소지금: " + user.money + "원\n";
+    info += "낚싯대: " + rod.name + "\n";
+    info += "인벤토리:\n";
+    for (var fish in user.inventory) {
+        info += fish + ": " + user.inventory[fish] + "마리\n";
+    }
+    return info;
+}
+
+function getHelpMessage() {
+    return "낚시 게임 도움말\n" +
+           "!낚시 - 낚시를 합니다.\n" +
+           "!내정보 - 내 정보를 확인합니다.\n" +
+           "!낚시상점 - 상점 정보를 확인합니다.\n" +
+           "!낚싯대구매 (번호) - 낚싯대를 구매합니다.\n" +
+           "!물고기목록 - 물고기 목록을 확인합니다.";
+}
+
+function getShopInfo() {
+    var info = "낚시 상점\n";
+    for (var id in rodData) {
+        var rod = rodData[id];
+        info += id + ". " + rod.name + " - " + rod.price + "원 (성공률: " + (rod.catchRate * 100) + "%)\n";
+    }
+    return info;
+}
+
+function buyRod(sender, rodNumber) {
+    var user = userData[sender];
+    var rod = rodData[rodNumber];
+    if (!rod) {
+        return "잘못된 낚싯대 번호입니다.";
+    }
+    if (user.money < rod.price) {
+        return "돈이 부족합니다.";
+    }
+    user.money -= rod.price;
+    user.rod = rodNumber;
+    return sender + "님이 " + rod.name + "을(를) 구매했습니다!";
+}
+
+function getFishList() {
+    var list = "물고기 목록\n";
+    for (var id in fishData) {
+        var fish = fishData[id];
+        list += fish.name + " - " + fish.price + "원 (" + fish.rarity + ")\n";
+    }
+    return list;
+}
+
+// 주기적으로 데이터를 저장하는 함수
+function periodicSave() {
+    saveData();
+}
+
+// 5분마다 데이터 저장
+setInterval(periodicSave, 5 * 60 * 1000);
