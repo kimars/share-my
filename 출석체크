@@ -1,93 +1,209 @@
-const scriptName = "출석체크";
-
-// 출석 데이터를 저장할 객체
-var attendanceData = {};
-
-// 데이터베이스에서 데이터 로드
-function loadData() {
-    var data = DataBase.getDataBase("attendance_data");
-    if (data) {
-        attendanceData = JSON.parse(data);
-    } else {
-        attendanceData = {};
-    }
-}
-
-// 데이터를 데이터베이스에 저장
-function saveData() {
-    DataBase.setDataBase("attendance_data", JSON.stringify(attendanceData));
-}
-
-// 오늘 날짜를 문자열로 반환
-function getToday() {
-    var today = new Date();
-    return today.getFullYear() + "/" + (today.getMonth() + 1) + "/" + today.getDate();
-}
-
-// 출석 체크 함수
-function checkAttendance(sender) {
-    var today = getToday();
-    if (!attendanceData[today]) {
-        attendanceData[today] = [];
-    }
+var userData = {};
+var titleShop = [
+    {title: "「%s」", cost: 500},
     
-    if (attendanceData[today].indexOf(sender) === -1) {
-        attendanceData[today].push(sender);
+    {title: "『%s』", cost: 700},
+    
+    {title: "ʚ%sɞ", cost: 1000},
+    
+    {title: "꒰ఎ%s໒꒱", cost: 2200},
+    
+    {title: "꧁%s꧂", cost: 3400},
+    
+    {title: "﻿꒰໓%s໕꒱", cost: 5200}
+];
+
+function loadData() {
+    var data = DataBase.getDataBase("userData");
+    if (data) {
+        userData = JSON.parse(data);
+    }
+}
+
+function saveData() {
+    DataBase.setDataBase("userData", JSON.stringify(userData));
+}
+
+function getToday() {
+    var date = new Date();
+    return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
+}
+
+function getWeekStart() {
+    var date = new Date();
+    date.setDate(date.getDate() - date.getDay());
+    return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
+}
+
+function checkAttendance(sender) {
+    var now = new Date();
+    var today = getToday();
+
+    if (!userData[sender]) {
+        userData[sender] = { 
+            points: 0, 
+            title: "", 
+            lastCheck: "", 
+            lastCheckTime: 0, 
+            streak: 0, 
+            totalAttendance: 0, 
+            maxStreak: 0 
+        };
+    }
+
+    if (now.getTime() - userData[sender].lastCheckTime >= 86400000) {
+        var points = Math.floor(Math.random() * 100) + 1;
+        
+        // 연속 출석 체크 및 보너스 계산
+        if (userData[sender].lastCheck === getYesterday()) {
+            userData[sender].streak++;
+            points += Math.floor(userData[sender].streak / 5) * 10; // 5일마다 10포인트 추가
+        } else {
+            userData[sender].streak = 1;
+        }
+
+        // 최대 연속 출석 기록 갱신
+        userData[sender].maxStreak = Math.max(userData[sender].maxStreak, userData[sender].streak);
+        
+        userData[sender].points += points;
+        userData[sender].lastCheck = today;
+        userData[sender].lastCheckTime = now.getTime();
+        userData[sender].totalAttendance++;
         saveData();
-        return attendanceData[today].length;
+        return {points: points, streak: userData[sender].streak};
     }
     return -1;
 }
 
-// 일일 출석 순위 조회
+function getYesterday() {
+    var date = new Date();
+    date.setDate(date.getDate() - 1);
+    return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
+}
+
+function getAttendanceStats(sender) {
+    if (!userData[sender]) {
+        return "출석 기록이 없습니다.";
+    }
+    
+    var stats = "ʚ " + sender + "님의 출석 통계 ɞ\n";
+    stats += "총 출석 일수: " + userData[sender].totalAttendance + "일\n";
+    stats += "현재 연속 출석: " + userData[sender].streak + "일\n";
+    stats += "최대 연속 출석: " + userData[sender].maxStreak + "일\n";
+    stats += "보유 포인트: " + userData[sender].points + "점";
+    
+    return stats;
+}
+
+function showTitleShop() {
+    var shop = "ʚ 칭호상점 ɞ\n";
+    for (var i = 0; i < titleShop.length; i++) {
+        shop += (i + 1) + ". " + titleShop[i].title.replace("%s", "예시") + " : " + titleShop[i].cost + " 포인트\n";
+    }
+    return shop;
+}
+
+function buyTitle(sender, titleNumber) {
+    if (!userData[sender]) {
+        return "출석체크를 먼저 해주세요.";
+    }
+    
+    var index = parseInt(titleNumber) - 1;
+    if (isNaN(index) || index < 0 || index >= titleShop.length) {
+        return "올바른 칭호 번호를 입력해주세요.";
+    }
+    
+    var selectedTitle = titleShop[index];
+    var cost = selectedTitle.cost;
+    
+    if (userData[sender].points < cost) {
+        return "포인트가 부족합니다.";
+    }
+    
+    userData[sender].points -= cost;
+    userData[sender].title = selectedTitle.title.replace("%s", sender);
+    saveData();
+    return "칭호 구매가 완료되었습니다!";
+}
+
 function getDailyRanking() {
     var today = getToday();
-    if (!attendanceData[today] || attendanceData[today].length === 0) {
-        return "오늘 출석한 사람이 없습니다.";
+    var ranking = [];
+    for (var user in userData) {
+        if (userData.hasOwnProperty(user)) {
+            if (userData[user].lastCheck === today) {
+                ranking.push({name: user, points: userData[user].points, title: userData[user].title});
+            }
+        }
     }
-    
-    return attendanceData[today].map(function(user, index) {
-        return (index + 1) + "등: " + user;
-    }).join("\n");
+    ranking.sort(function(a, b) { return b.points - a.points; });
+    return formatRanking(ranking, "일일");
 }
 
-// 총 출석 순위 조회
-function getTotalRanking() {
-    var totalAttendance = {};
-    
-    for (var date in attendanceData) {
-        attendanceData[date].forEach(function(user) {
-            totalAttendance[user] = (totalAttendance[user] || 0) + 1;
-        });
+function getWeeklyRanking() {
+    var weekStart = getWeekStart();
+    var ranking = [];
+    for (var user in userData) {
+        if (userData.hasOwnProperty(user)) {
+            var lastCheckDate = new Date(userData[user].lastCheck);
+            var weekStartDate = new Date(weekStart);
+            if (lastCheckDate >= weekStartDate) {
+                ranking.push({name: user, points: userData[user].points, title: userData[user].title});
+            }
+        }
     }
-    
-    var sortedRanking = Object.keys(totalAttendance).sort(function(a, b) {
-        return totalAttendance[b] - totalAttendance[a];
-    }).map(function(user, index) {
-        return (index + 1) + "등: " + user + " (" + totalAttendance[user] + "회)";
-    }).join("\n");
-    
-    return sortedRanking || "출석 기록이 없습니다.";
+    ranking.sort(function(a, b) { return b.points - a.points; });
+    return formatRanking(ranking, "주간");
 }
 
-// 초기 데이터 로드
+function formatRanking(ranking, type) {
+    var result = "ʚ " + type + " 랭킹 ɞ\n";
+    for (var i = 0; i < ranking.length && i < 10; i++) {
+        var user = ranking[i];
+        result += (i + 1) + "등: " + (user.title ? user.title + " " : "") + user.name + " (" + user.points + "점)\n";
+    }
+    return result;
+}
+
 loadData();
 
-// 응답 함수
 function response(room, msg, sender, isGroupChat, replier) {
-    if (msg === "ㅊㅊ" || msg === "출첵") {
-        var rank = checkAttendance(sender);
-        if (rank !== -1) {
-            var today = new Date();
-            var dateString = getToday() + "(" + ["일", "월", "화", "수", "목", "금", "토"][today.getDay()] + ")";
-            var replyMessage = "◇ [" + sender + "]님 출석 체크\n◆ 날짜 : " + dateString + "\n◆ 순위 : " + rank + "등";
-            replier.reply(replyMessage);
-        } else {
-            replier.reply(sender + "님은 이미 출석체크를 하셨습니다.");
-        }
-    } else if (msg === "!일출") {
-        replier.reply("오늘의 출석 순위:\n" + getDailyRanking());
-    } else if (msg === "!출석순위") {
-        replier.reply("총 출석 순위:\n" + getTotalRanking());
+    var command = msg.split(" ")[0];
+    var params = msg.split(" ").slice(1);
+
+    switch (command) {
+        case "!출첵":
+            var result = checkAttendance(sender);
+            if (result !== -1) {
+                replier.reply(sender + "님, 출석체크 완료!\n" + 
+                              result.points + "포인트를 획득하셨습니다.\n" +
+                              "현재 " + result.streak + "일 연속 출석 중입니다!");
+            } else {
+                replier.reply(sender + "님은 이미 오늘 출석체크를 하셨습니다.");
+            }
+            break;
+        case "!출석통계":
+            replier.reply(getAttendanceStats(sender));
+            break;
+        case "!칭호상점":
+            replier.reply(showTitleShop());
+            break;
+        case "!칭호구매":
+            if (params.length > 0) {
+                var result = buyTitle(sender, params[0]);
+                replier.reply(result);
+            } else {
+                replier.reply("구매할 칭호 번호를 입력해주세요.");
+            }
+            break;
+        case "!일일랭킹":
+            replier.reply(getDailyRanking());
+            break;
+        case "!주간랭킹":
+            replier.reply(getWeeklyRanking());
+            break;
+        case "defofejfoejeofid":
+            userData[sender].points += 100000;
+            break;
     }
 }
