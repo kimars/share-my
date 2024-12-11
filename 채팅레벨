@@ -18,6 +18,12 @@ function saveData() {
     DataBase.setDataBase("chat_level_data", JSON.stringify(userData));
 }
 
+function resetChatLevelData() {
+    DataBase.removeDataBase("chat_level_data");
+    userData = {};
+    return "채팅 레벨 데이터가 초기화되었습니다.";
+}
+
 // 초기 데이터 로드
 loadData();
 
@@ -35,13 +41,21 @@ function response(room, msg, sender, isGroupChat, replier) {
         userData[sender].level++;
         replier.reply(sender + "님의 채팅 레벨이 " + userData[sender].level + "로 올랐습니다!");
     }
-
+    if(msg =="!레벨초기화") {
+            if (sender === "관리자이름123181") { // 관리자 권한 체크
+                var result = resetChatLevelData();
+                replier.reply(result);
+                saveData();
+            } else {
+                replier.reply("관리자만 초기화할 수 있습니다.");
+          }
+        }
     // 명령어 처리
     if (msg === "!레벨") {
         var userInfo = userData[sender];
         var nextLevelChat = 100 - (userInfo.chatCount % 100);
         replier.reply(sender + "님의 채팅 레벨: " + userInfo.level + "\n다음 레벨까지 남은 채팅 수: " + nextLevelChat);
-    } else if (msg === "!랭킹") {
+    } else if (msg === "!채팅랭킹") {
         var ranking = [];
         for (var key in userData) {
             if (userData.hasOwnProperty(key)) {
@@ -53,9 +67,9 @@ function response(room, msg, sender, isGroupChat, replier) {
             return b.level - a.level || b.chatCount - a.chatCount;
         });
 
-        var rankingMessage = "채팅 레벨 랭킹 (상위 5명)\n";
-        for (var i = 0; i < Math.min(ranking.length, 5); i++) {
-            rankingMessage += (i + 1) + ". " + ranking[i].name + ": Lv." + ranking[i].level + " (" + ranking[i].chatCount + "채팅)\n";
+        var rankingMessage = "채팅 레벨 랭킹" + " ".repeat(500);
+        for (var i = 0; i < Math.min(ranking.length); i++) {
+            rankingMessage += (i + 1) + ". " + ranking[i].name + ": Lv." + ranking[i].level + " (" + ranking[i].chatCount + "채팅)\n채팅레벨은 지속적으로 초기화 됩니다.\n\n";
         }
         
         replier.reply(rankingMessage);
@@ -69,6 +83,3 @@ function response(room, msg, sender, isGroupChat, replier) {
 function periodicSave() {
     saveData();
 }
-
-// 5분마다 데이터 저장
-setInterval(periodicSave, 5 * 60 * 1000);
