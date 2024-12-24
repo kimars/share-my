@@ -1,0 +1,76 @@
+var teachingData = {};
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg.indexOf("가르치기 ") === 0) {
+        handleTeaching(msg.substring(5), replier);
+    } else if (msg.indexOf("삭제 ") === 0) {
+        handleDelete(msg.substring(3), replier);
+    } else if (msg.indexOf("수정 ") === 0) {
+        handleModify(msg.substring(3), replier);
+    } else if (msg.indexOf(":") !== -1) {
+        handleQuery(msg, replier);
+    } else if (msg === "조회") {
+        handleListAll(replier);
+    }
+}
+
+function handleTeaching(content, replier) {
+    var parts = content.split(":");
+    var key = parts[0].trim();
+    var value = parts[1] ? parts[1].trim() : "";
+    if (key && value) {
+        teachingData[key] = value;
+        replier.reply("'" + key + "'에 대한 내용을 학습했습니다: " + value);
+    } else {
+        replier.reply("올바른 형식으로 입력해주세요. (예: 가르치기 키:값)");
+    }
+}
+
+function handleDelete(key, replier) {
+    key = key.trim();
+    if (teachingData.hasOwnProperty(key)) {
+        delete teachingData[key];
+        replier.reply("'" + key + "'에 대한 정보를 삭제했습니다.");
+    } else {
+        replier.reply("'" + key + "'에 대한 정보가 없습니다.");
+    }
+}
+
+function handleModify(content, replier) {
+    var parts = content.split(":");
+    var key = parts[0].trim();
+    var value = parts[1] ? parts[1].trim() : "";
+    if (key && value) {
+        if (teachingData.hasOwnProperty(key)) {
+            teachingData[key] = value;
+            replier.reply("'" + key + "'의 내용을 수정했습니다: " + value);
+        } else {
+            replier.reply("'" + key + "'에 대한 정보가 없습니다. 새로 추가하려면 '가르치기' 명령어를 사용하세요.");
+        }
+    } else {
+        replier.reply("올바른 형식으로 입력해주세요. (예: 수정 키:새로운 값)");
+    }
+}
+
+function handleQuery(msg, replier) {
+    var key = msg.split(":")[0].trim();
+    if (teachingData.hasOwnProperty(key)) {
+        replier.reply(key + ": " + teachingData[key]);
+    } else {
+        replier.reply("'" + key + "'에 대한 정보가 없습니다.");
+    }
+}
+
+function handleListAll(replier) {
+    var allData = "";
+    for (var key in teachingData) {
+        if (teachingData.hasOwnProperty(key)) {
+            allData += key + ": " + teachingData[key] + "\n";
+        }
+    }
+    if (allData) {
+        replier.reply("저장된 모든 정보:\n" + allData.trim());
+    } else {
+        replier.reply("저장된 정보가 없습니다.");
+    }
+}
