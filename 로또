@@ -1,0 +1,232 @@
+// 전역 변수 선언
+var lottoInfo = {
+    jackpot: 0,
+    secondPrize: 0,
+    thirdPrize: 0,
+    lastUpdate: 0
+};
+var userInfo = {};
+var donationTotal = 0;
+var donationLevel = 1;
+var bannedUsers = {};
+var bannedCommands = ["!로또", "!로또정보", "!로또랭킹", "!기부"];
+
+// 관리자 확인 함수
+const managers = [-1279267575];
+function isManager(profile) {
+    return managers.includes(profile);
+}
+
+function replyNotManager(replier) {
+    replier.reply("You are not MBO.");
+}
+
+// 데이터베이스에서 데이터 로드
+function loadData() {
+    var data = DataBase.getDataBase("lotto_data");
+    if (data) {
+        var parsedData = JSON.parse(data);
+        lottoInfo = parsedData.lottoInfo || lottoInfo;
+        userInfo = parsedData.userInfo || userInfo;
+        donationTotal = parsedData.donationTotal || 0;
+        donationLevel = parsedData.donationLevel || 1;
+        bannedUsers = parsedData.bannedUsers || {};
+    }
+}
+
+// 데이터를 데이터베이스에 저장
+function saveData() {
+    var data = {
+        lottoInfo: lottoInfo,
+        userInfo: userInfo,
+        donationTotal: donationTotal,
+        donationLevel: donationLevel,
+        bannedUsers: bannedUsers
+    };
+    DataBase.setDataBase("lotto_data", JSON.stringify(data));
+}
+
+// 로또 정보 업데이트 (1시간마다)
+function updateLottoInfo() {
+    var currentTime = Date.now();
+    if (currentTime - lottoInfo.lastUpdate >= 3600000) {
+        lottoInfo.jackpot = Math.floor(Math.random() * 29900000000) + 100000000;
+        lottoInfo.secondPrize = Math.floor(Math.random() * 90000000) + 10000000;
+        lottoInfo.thirdPrize = Math.floor(Math.random() * 9000000) + 1000000;
+        lottoInfo.lastUpdate = currentTime;
+        saveData();
+    }
+}
+
+// 로또 번호 생성
+function generateLottoNumbers() {
+    var numbers = [];
+    while (numbers.length < 6) {
+        var num = Math.floor(Math.random() * 45) + 1;
+        if (numbers.indexOf(num) === -1) {
+            numbers.push(num);
+        }
+    }
+    return numbers.sort(function(a, b) { return a - b; });
+}
+
+// 로또 결과 확인
+function checkLottoResult(userNumbers, winningNumbers) {
+    var matchCount = userNumbers.filter(function(num) {
+        return winningNumbers.indexOf(num) !== -1;
+    }).length;
+    switch (matchCount) {
+        case 6: return 1;
+        case 5: return 2;
+        case 4: return 3;
+        case 3: return 4;
+        default: return 0;
+    }
+}
+
+// 로또 등급 확인
+function getLottoGrade() {
+    if (lottoInfo.jackpot >= 20000000000) {
+        if (lottoInfo.jackpot >= 20000000000) return "특별로또";
+        if (lottoInfo.jackpot >= 10000000000) return "대박로또";
+        if (lottoInfo.jackpot >= 20000000000) return "미친로또";
+    }
+    return "일반로또";
+}
+
+// 사용자 정보 초기화
+function initUserInfo(sender) {
+    if (!userInfo[sender]) {
+        userInfo[sender] = {
+            money: 100000,
+            playCount: 0,
+            donationAmount: 0
+        };
+        saveData();
+    }
+}
+
+// 메인 함수
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    loadData();
+    updateLottoInfo();
+    initUserInfo(sender);
+
+    const profile = new java.lang.String(imageDB.getProfileHash()).hashCode();
+    const command = msg.split(" ")[0];
+
+    // 밴 명령어
+    if (command === "!로또밴" && msg.includes("@")) {
+        if (isManager(profile)) {
+            const userToBan = msg.split("@")[1].trim();
+            bannedUsers[userToBan] = true;
+            saveData();
+            replier.reply(userToBan + "님이 밴되었습니다.");
+        } else {
+            replyNotManager(replier);
+        }
+        return;
+    }
+
+    // 밴 해제 명령어
+    if (command === "!로또밴해제" && msg.includes("@")) {
+        if (isManager(profile)) {
+            const userToUnban = msg.split("@")[1].trim();
+            if (bannedUsers[userToUnban]) {
+                delete bannedUsers[userToUnban];
+                saveData();
+                replier.reply(userToUnban + "님의 밴이 해제되었습니다.");
+            } else {
+                replier.reply(userToUnban + "님은 밴 목록에 없습니다.");
+            }
+        } else {
+            replyNotManager(replier);
+        }
+        return;
+    }
+
+    // 밴된 사용자인지 확인하고 밴된 명령어 사용 시 차단
+    if (bannedUsers[sender] && bannedCommands.includes(command)) {
+        replier.reply("죄송합니다. 당신은 현재 밴 상태이며 이 명령어를 사용할 수 없습니다.");
+        return;
+    }
+
+    if (msg === "!로또") {
+        if (userInfo[sender].money < 10000) {
+            replier.reply("로또를 구매할 돈이 부족합니다.");
+            return;
+        }
+
+        userInfo[sender].money -= 10000;
+        userInfo[sender].playCount++;
+        saveData();
+
+        var userNumbers = generateLottoNumbers();
+        replier.reply("로또 번호: " + userNumbers.join(", ") + "\n5초 후 결과를 확인합니다.");
+
+        java.lang.Thread.sleep(5000);
+
+        var winningNumbers = generateLottoNumbers();
+        var result = checkLottoResult(userNumbers, winningNumbers);
+
+        var prize = 0;
+        switch (result) {
+            case 1: prize = lottoInfo.jackpot; break;
+            case 2: prize = lottoInfo.secondPrize; break;
+            case 3: prize = lottoInfo.thirdPrize; break;
+            case 4: prize = 50000; break;
+        }
+
+        userInfo[sender].money += prize;
+        saveData();
+
+        replier.reply("당첨 번호: " + winningNumbers.join(", ") + 
+                      "\n결과: " + (result ? result + "등 당첨! 상금: " + prize.toLocaleString() + "원" : "낙첨") + 
+                      "\n현재 잔액: " + userInfo[sender].money.toLocaleString() + "원");
+    } else if (msg === "!로또정보") {
+        var grade = getLottoGrade();
+        replier.reply("현재 로또 정보\n" +
+            "등급: " + grade + "\n" +
+            "1등 상금: " + lottoInfo.jackpot.toLocaleString() + "원\n" +
+            "2등 상금: " + lottoInfo.secondPrize.toLocaleString() + "원\n" +
+            "3등 상금: " + lottoInfo.thirdPrize.toLocaleString() + "원");
+    } else if (msg === "!로또랭킹") {
+        var ranking = Object.keys(userInfo).map(function(name) {
+            return { name: name, donationAmount: userInfo[name].donationAmount };
+        }).sort(function(a, b) {
+            return b.donationAmount - a.donationAmount;
+        }).map(function(user, index) {
+            return (index + 1) + ". " + user.name + ": " + user.donationAmount.toLocaleString() + "원";
+        }).join("\n");
+        replier.reply("기부금액 랭킹"+ ' '.repeat(500) + ranking);
+    } else if (msg.indexOf("!기부 ") === 0) {
+        var amount = parseInt(msg.split(" ")[1]);
+        if (isNaN(amount) || amount <= 0) {
+            replier.reply("올바른 금액을 입력해주세요.");
+            return;
+        }
+        if (userInfo[sender].money < amount) {
+            replier.reply("기부할 돈이 부족합니다.");
+            return;
+        }
+        userInfo[sender].money -= amount;
+        userInfo[sender].donationAmount += amount;
+        donationTotal += amount;
+        if (donationTotal >= donationLevel * 10000000000) {
+            donationLevel++;
+            if (donationLevel > 10) {
+                replier.reply("축하합니다! 기부 레벨이 10에 도달하여 특별 이벤트가 시작됩니다!");
+                // 여기에 이벤트 로직을 추가하세요
+            }
+        }
+        saveData();
+        replier.reply(amount.toLocaleString() + "원을 기부했습니다.\n총 기부금: " + donationTotal.toLocaleString() + "원\n현재 기부 레벨: " + donationLevel);
+    } else if (msg === "!로또도움말") {
+        replier.reply("로또 게임 명령어\n" +
+            "!로또 - 로또 구매 및 추첨\n" +
+            "!로또정보 - 현재 로또 정보 확인\n" +
+            "!로또랭킹 - 기부금액 랭킹 확인\n" +
+            "!기부 [금액] - 지정한 금액만큼 기부\n" +
+            "!로또도움말 - 도움말 보기");
+    }
+}
