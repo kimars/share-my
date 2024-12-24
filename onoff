@@ -1,0 +1,66 @@
+var botStatus = "작동중"; // 봇의 초기 상태
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+  const profile = new java.lang.String(imageDB.getProfileHash()).hashCode();
+  const managers = [-1279267575];
+  
+  function isManager(profile) {
+    return managers.includes(profile);
+  }
+
+  if (msg == "/봇시작") {
+    if (isManager(profile)) {
+      replier.reply("봇을 시작합니다.");
+      Api.reload();
+      Api.on();
+      botStatus = "작동중";
+    } else {
+      replier.reply("You are not MBO.");
+    }
+  }
+
+if (msg == "/점검") {
+    if (isManager(profile)) {
+      replier.reply("봇을 점검합니다.");
+      Api.off();
+      botStatus = "점검중";
+    } else {
+      replier.reply("You are not MBO.");
+    }
+  }
+  
+  if (msg == "/컴파일") {
+    if (isManager(profile)) {
+      Api.compile();
+      replier.reply("컴파일 완료");
+    } else {
+      replier.reply("You are not MBO.");
+    }
+  }
+
+  if (msg.startsWith("/조절 ")) {
+    if (isManager(profile)) {
+      botStatus = msg.substring(4);
+      replier.reply("봇 상태가 '" + botStatus + "'(으)로 변경되었습니다.");
+    } else {
+      replier.reply("You are not MBO.");
+    }
+  }
+  if(msg == "/챗금") {
+    if (isManager(profile)) {
+      replier.reply("이 채팅밑으로 채팅을 칠 경우 강퇴조치됩니다.");
+    } else {
+      replier.reply("You are not MBO.");
+    }
+  }
+  if(msg == "/챗풀") {
+    if (isManager(profile)) {
+      replier.reply("===챗금을 해제합니다.===");
+    } else {
+      replier.reply("You are not MBO.");
+    }
+  }
+  if (msg == "/봇상태") {
+    replier.reply("현재 봇의 상태는 " + botStatus + " 입니다.");
+  }
+}
