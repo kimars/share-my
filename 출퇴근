@@ -1,0 +1,77 @@
+const workLog = {};
+var userData = {};
+
+
+// 데이터베이스에서 데이터 로드
+function loadData() {
+    var data = DataBase.getDataBase("출퇴근");
+    if (data) {
+        userData = JSON.parse(data);
+    } else {
+        userData = {};
+    }
+}
+
+// 데이터를 데이터베이스에 저장
+function saveData() {
+    DataBase.setDataBase("출퇴근", JSON.stringify(userData));
+}
+
+function response(room, msg, sender, isGroupChat, replier, imageDB) {
+  const profile = new java.lang.String(imageDB.getProfileHash()).hashCode();
+  const managers = [-1279267575];
+  
+    if (msg.startsWith("/출근")) {
+      if (managers.includes(profile)) {
+        handleClockIn(sender, replier);
+    } else {
+      replier.reply("You are not MBO.");
+      }
+    }
+    
+    
+    if (msg.startsWith("/퇴근")) {
+      if (managers.includes(profile)) {
+        handleClockOut(sender, replier +
+                  "근무 시간: " + workDuration);
+      } else {
+      replier.repl("You are not MBO.");
+
+    }
+  }
+
+function handleClockIn(sender, replier) {
+    const now = new Date();
+    workLog[sender] = {
+        clockInTime: now
+    };
+    replier.reply(sender + "님이 " + formatTime(now) + "에 출근하셨습니다.");
+}
+
+function handleClockOut(sender, replier) {
+    if (!workLog[sender] || !workLog[sender].clockInTime) {
+        replier.reply(sender + "님, 먼저 출근 처리를 해주세요.");
+        return;
+    }
+
+    const now = new Date();
+    const clockInTime = workLog[sender].clockInTime;
+    const workDuration = calculateWorkDuration(clockInTime, now);
+
+    replier.reply(sender + "님이 " + formatTime(now) + "에 퇴근하셨습니다.");
+
+    delete workLog[sender];
+}
+
+function calculateWorkDuration(start, end) {
+    const diff = end - start;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return hours + "시간 " + minutes + "분";
+}
+
+function formatTime(date) {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return hours + ":" + minutes;
+}}
