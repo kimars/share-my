@@ -1,0 +1,59 @@
+var quizData = [
+    // 음식 관련
+    { question: "ㄱㅊㅉㄱ", answer: "김치찌개" },
+    { question: "ㅂㅂㄱ", answer: "불고기" },
+    { question: "ㅎㄷㄱ", answer: "핫도그" },
+    { question: "ㅍㅈ", answer: "피자" },
+    { question: "ㅈㅂ", answer: "족발" },
+
+    // 연예인/인물
+    { question: "ㅇㅈㅈ", answer: "이정재" },
+    { question: "ㄱㅎㅅ", answer: "김희선" },
+    { question: "ㅂㅌㅅㄴㄷ", answer: "방탄소년단" },
+    { question: "ㅇㅇㅇ", answer: "아이유" },
+
+    // 동물
+    { question: "ㄱㅇㅇ", answer: "고양이" },
+    { question: "ㄷㄱㄹ", answer: "돌고래" },
+    { question: "ㅊㅇㅇ", answer: "치와와" }
+];
+
+var currentQuiz = null;
+var quizActive = false;
+
+function response(room, msg, sender, isGroupChat, replier) {
+  if (msg === "!퀴즈시작") {
+    if (!quizActive) {
+      startQuiz(replier);
+    } else {
+      replier.reply("이미 퀴즈가 진행 중입니다.");
+    }
+  } else if (msg === "!퀴즈종료") {
+    if (quizActive) {
+      endQuiz(replier);
+    } else {
+      replier.reply("진행 중인 퀴즈가 없습니다.");
+    }
+  } else if (quizActive) {
+    checkAnswer(msg, sender, replier);
+  }
+}
+
+function startQuiz(replier) {
+  currentQuiz = quizData[Math.floor(Math.random() * quizData.length)];
+  quizActive = true;
+  replier.reply("초성퀴즈를 시작합니다!\n초성: " + currentQuiz.question);
+}
+
+function endQuiz(replier) {
+  quizActive = false;
+  currentQuiz = null;
+  replier.reply("퀴즈가 종료되었습니다.");
+}
+
+function checkAnswer(msg, sender, replier) {
+  if (msg === currentQuiz.answer) {
+    replier.reply(sender + "님 정답입니다! 정답은 '" + currentQuiz.answer + "' 였습니다.");
+    startQuiz(replier);
+  }
+}
