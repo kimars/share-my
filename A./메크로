@@ -1,12 +1,1 @@
-const TARGET_ROOM = ""; // 메시지를 보낼 카톡방 이름
-const MESSAGE = "자동으로 보내는 메시지입니다."; // 보낼 메시지 내용
-const INTERVAL = 60* 60 * 1000; // 메시지 전송 간격 (밀리초 단위, 여기서는 1시간)
 
-function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
-    // 아무 동작도 하지 않음
-}
-
-// 주기적으로 메시지 전송
-setInterval(function() {
-    Api.replyRoom(TARGET_ROOM, MESSAGE);
-}, INTERVAL);
