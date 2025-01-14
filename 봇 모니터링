@@ -1,0 +1,57 @@
+const managers = [여러분의 해시코드를 넣으세요.];
+
+var responseTimeLog = [];
+var isMonitoring = false;
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    var startTime = new Date().getTime();
+    const profile = new java.lang.String(imageDB.getProfileHash()).hashCode();
+    
+        if (msg == "/모니터링 시작") {
+          if(managers.includes(profile)) {
+            isMonitoring = true;
+            responseTimeLog = [];
+            replier.reply("응답 속도 모니터링을 시작합니다.");
+        } else {
+          replier.reply("You are not Owner.");
+        }
+      }
+          if (msg == "/모니터링 종료") {
+            if(managers.includes(profile)) {
+            isMonitoring = false;
+            var report = generateReport();
+            replier.reply(report);
+        } else {
+          replier.reply("You are not Owner.");
+          }
+          
+          
+    }
+    
+    
+    // 여기에 봇의 주요 기능 구현
+    
+    if (isMonitoring) {
+        var endTime = new Date().getTime();
+        var responseTime = endTime - startTime;
+        responseTimeLog.push(responseTime);
+    }
+}
+
+function generateReport() {
+    if (responseTimeLog.length === 0) {
+        return "수집된 데이터가 없습니다.";
+    }
+    
+    var sum = responseTimeLog.reduce(function(a, b) { return a + b; });
+    var avg = sum / responseTimeLog.length;
+    var max = Math.max.apply(null, responseTimeLog);
+    var min = Math.min.apply(null, responseTimeLog);
+    
+    return "응답 속도 보고서:\n" +
+           "평균: " + avg.toFixed(2) + "ms\n" +
+           "최대: " + max + "ms\n" +
+           "최소: " + min + "ms\n" +
+           "샘플 수: " + responseTimeLog.length;
+}
+
