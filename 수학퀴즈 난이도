@@ -1,0 +1,97 @@
+var gameRoom = null;
+var gameAnswer = null;
+var gameDifficulty = null;
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg.startsWith('.수학퀴즈') && gameRoom === null) {
+        var difficulty = msg.split(' ')[1];
+        if (!['쉬움', '보통', '어려움', '극악'].includes(difficulty)) {
+            replier.reply("난이도를 선택해주세요: .수학퀴즈 [쉬움/보통/어려움/극악]");
+            return;
+        }
+        
+        gameRoom = room;
+        gameDifficulty = difficulty;
+        
+        var question = generateQuestion(difficulty);
+        replier.reply("난이도: " + difficulty + "\n" + question + " = ?\n답을 입력해주세요.");
+        
+        // 30초 타이머 설정
+        java.lang.Thread({
+            run: function() {
+                java.lang.Thread.sleep(30000);
+                if (gameRoom !== null) {
+                    replier.reply("시간이 초과되었습니다. 정답은 " + gameAnswer + "입니다.");
+                    resetGame();
+                }
+            }
+        }).start();
+    } else if (gameRoom === room && gameAnswer !== null) {
+        var userAnswer = parseFloat(msg);
+        if (!isNaN(userAnswer)) {
+            if (Math.abs(userAnswer - gameAnswer) < 0.01) {
+                replier.reply("정답입니다! 👍");
+            } else {
+                replier.reply("틀렸습니다. 정답은 " + gameAnswer + "입니다.");
+            }
+            resetGame();
+        }
+    }
+}
+
+function generateQuestion(difficulty) {
+    var operators = ['+', '-', '*', '/'];
+    var num1, num2, operator;
+    
+    switch(difficulty) {
+        case '쉬움':
+            num1 = Math.floor(Math.random() * 10) + 1;
+            num2 = Math.floor(Math.random() * 10) + 1;
+            operator = operators[Math.floor(Math.random() * 2)];  // 덧셈, 뺄셈만
+            break;
+        case '보통':
+            num1 = Math.floor(Math.random() * 50) + 1;
+            num2 = Math.floor(Math.random() * 50) + 1;
+            operator = operators[Math.floor(Math.random() * 4)];  // 모든 연산
+            break;
+        case '어려움':
+            num1 = Math.floor(Math.random() * 100) + 1;
+            num2 = Math.floor(Math.random() * 100) + 1;
+            operator = operators[Math.floor(Math.random() * 4)];
+            break;
+        case '극악':
+            num1 = Math.floor(Math.random() * 1000) + 1;
+            num2 = Math.floor(Math.random() * 100) + 1;
+            operator = operators[Math.floor(Math.random() * 4)];
+            break;
+    }
+    
+    var question;
+    switch(operator) {
+        case '+':
+            question = num1 + " + " + num2;
+            gameAnswer = num1 + num2;
+            break;
+        case '-':
+            question = num1 + " - " + num2;
+            gameAnswer = num1 - num2;
+            break;
+        case '*':
+            question = num1 + " × " + num2;
+            gameAnswer = num1 * num2;
+            break;
+        case '/':
+            gameAnswer = num1;
+            num1 = num1 * num2;  // 정수 나눗셈을 위해
+            question = num1 + " ÷ " + num2;
+            break;
+    }
+    
+    return question;
+}
+
+function resetGame() {
+    gameRoom = null;
+    gameAnswer = null;
+    gameDifficulty = null;
+}
