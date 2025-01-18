@@ -1,0 +1,21 @@
+var rooms = ["방1", "방2", "방3"]; // 메시지를 보낼 방 목록
+var message = "안녕하세요! 정기 메시지입니다."; // 보낼 메시지
+
+function sendMessage() {
+    for (var i = 0; i < rooms.length; i++) {
+        var room = rooms[i];
+        try {
+            Api.sendChat(room, message);
+            Log.i("메시지 전송 성공: " + room);
+        } catch (e) {
+            Log.e("메시지 전송 실패: " + room + ", 오류: " + e);
+        }
+    }
+}
+
+function start() {
+    sendMessage(); // 즉시 한 번 실행
+    setInterval(sendMessage, 60 * 60 * 1000); // 1시간(3600000ms)마다 실행
+}
+
+start();
