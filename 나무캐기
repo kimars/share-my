@@ -1,0 +1,38 @@
+var tree = {
+    name: "평범한 나무",
+    length: 1000000000000,
+    evolution: 0
+};
+
+function chop() {
+    var chopAmount = Math.floor(Math.random() * 100) + 1;
+    tree.length -= chopAmount;
+
+    if (tree.length <= 0) {
+        evolveTree();
+        return tree.name + "로 진화했습니다!\n새로운 길이: " + tree.length + "cm";
+    }
+
+    return tree.name + "에서 " + chopAmount + "cm를 캤습니다.\n남은 길이: " + tree.length + "cm";
+}
+
+function evolveTree() {
+    tree.evolution++;
+    tree.length = 1000000000000 * (tree.evolution + 1);
+    updateTreeName();
+}
+
+function updateTreeName() {
+    var prefixes = ["無", "空", "虛", "幻", "夢", "奇", "妙", "玄", "神", "仙"];
+    var prefix = prefixes[tree.evolution % prefixes.length];
+    tree.name = "[" + prefix + "]한 나무";
+}
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg == "나무캐기") {
+        replier.reply("[!] 나무를 캡니다...\n소요시간 : [ 5초 ]");
+        java.lang.Thread.sleep(5000); // 5초 대기
+        var result = chop();
+        replier.reply(result);
+    }
+}
