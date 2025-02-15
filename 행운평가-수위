@@ -1,0 +1,68 @@
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg === "!행운") {
+        replier.reply("행운을 측정중입니다... 🍀");
+        
+        java.lang.Thread.sleep(3000);
+        
+        var charms = [
+            "행운 부적 🌟",
+            "불행 부적 ☠️",
+            "연애 부적 💖",
+            "건강 부적 💪",
+            "재물 부적 💰",
+            "학업 부적 📚",
+            "인연 부적 🤝",
+            "여행 부적 🌎"
+        ];
+        
+        var charm = charms[Math.floor(Math.random() * charms.length)];
+        var luckPercent = Math.floor(Math.random() * 101);
+        var message;
+        
+        if (luckPercent >= 80) {
+            message = "대길! 엄청난 행운이 찾아올 거예요!";
+        } else if (luckPercent >= 60) {
+            message = "길! 좋은 일이 생길 것 같아요.";
+        } else if (luckPercent >= 40) {
+            message = "보통. 평범한 하루가 될 것 같네요.";
+        } else if (luckPercent >= 20) {
+            message = "흉. 조심해서 나쁠 것은 없겠어요.";
+        } else {
+            message = "대흉! 오늘은 집에 머무는 게 좋겠어요!";
+        }
+        
+        replier.reply("오늘의 행운 부적은...\n" + charm + "\n" + message + "\n(행운 지수: " + luckPercent + "%)");
+    }
+}
+
+_________________________________________________________________________________________________________________________________
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    if (msg === "!수위") {
+        replier.reply("수위를 측정중입니다... 🔍");
+        
+        java.lang.Thread.sleep(3000);
+        
+        var purity = Math.floor(Math.random() * 101); 
+        var level, message;
+        
+        if (purity >= 80) {
+            level = "1단계";
+            message = "순수함 100% 😇";
+        } else if (purity >= 60) {
+            level = "2단계";
+            message = "순수함 80% 😊";
+        } else if (purity >= 40) {
+            level = "3단계";
+            message = "순수함 50% 😐";
+        } else if (purity >= 20) {
+            level = "4단계";
+            message = "순수함 20% 😏";
+        } else {
+            level = "5단계";
+            message = "순수함 0% 😈";
+        }
+        
+        replier.reply("현재 방의 수위는...\n" + level + " - " + message + "\n(순수함 " + purity + "%)");
+    }
+}
