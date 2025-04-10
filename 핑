@@ -1,0 +1,17 @@
+const scriptName = "FinalPingBot";
+var isMeasuring = false;
+
+function response(room, msg, sender, isGroupChat, replier) {
+  if (msg === "!ping" && !isMeasuring) {
+    isMeasuring = true;
+    var start = Date.now();
+    
+    replier.reply("⏱ 측정 중...");
+    
+    // 2단계 확인
+    setTimeout(function() {
+      replier.reply("✅ 측정 완료: " + (Date.now()-start) + "ms");
+      isMeasuring = false;
+    }, 300); // 최소 300ms 지연 보장
+  }
+}
