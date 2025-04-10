@@ -1,0 +1,62 @@
+var games = {};
+
+function response(room, msg, sender, isGroupChat, replier) {
+    if (msg === "!순발력" && room != ".") {
+        if (!games[room] || !games[room].started) {
+            games[room] = { started: true, cheaters: {} };
+            startCountdown(room, replier);
+        } else {
+            replier.reply("이미 게임이 진행 중입니다.");
+        }
+    } else if (games[room] && games[room].started && msg === "1") {
+        handleInput(room, sender, replier);
+    }
+}
+
+function startCountdown(room, replier) {
+    var countdown = 5;
+    replier.reply("순발력 게임을 시작합니다. " + countdown + "초 후에 1을 입력하세요!");
+
+    games[room].countdownTimer = setInterval(function() {
+        countdown--;
+        if (countdown > 0) {
+            replier.reply(countdown + "...");
+        } else {
+            clearInterval(games[room].countdownTimer);
+            replier.reply("지금 입력하세요!");
+            games[room].startTime = new Date().getTime();
+        }
+    }, 1000);
+}
+
+function handleInput(room, sender, replier) {
+    var game = games[room];
+    var currentTime = new Date().getTime();
+
+    if (!game.startTime) {
+        if (!game.cheaters[sender]) {
+            game.cheaters[sender] = true;
+            replier.reply(sender + "님, 부정 행위가 감지되었습니다.\n이번 게임에서 더 이상 참여할 수 없습니다.");
+        }
+        return;
+    }
+
+    if (game.cheaters[sender]) {
+        replier.reply(sender + "님은 부정 행위로 인해 이번 게임에 참여할 수 없습니다.");
+        return;
+    }
+
+    var reactionTime = (currentTime - game.startTime) / 1000;
+    clearInterval(game.countdownTimer);
+    delete games[room];
+    replier.reply(sender + "님이 승리했습니다.\n" + reactionTime.toFixed(3) + "초 만에 1을 입력하여 이겼습니다.");
+}
+
+function onStartCompile() {
+    for (var room in games) {
+        if (games[room].countdownTimer) {
+            clearInterval(games[room].countdownTimer);
+        }
+    }
+    games = {};
+}
