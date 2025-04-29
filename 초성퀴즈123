@@ -1,0 +1,73 @@
+// 메신저봇R 라이노 자바스크립트 초성퀴즈 예제
+
+// 퀴즈 데이터
+var quizList = [
+    { answer: "사과", hint: "과일", cho: "ㅅㄱ" },
+    { answer: "바나나", hint: "노란색 과일", cho: "ㅂㄴㄴ" },
+    { answer: "컴퓨터", hint: "전자기기", cho: "ㅋㅍㅌ" },
+    { answer: "자동차", hint: "탈 것", cho: "ㅈㄷㅊ" },
+    { answer: "고양이", hint: "동물", cho: "ㄱㅇㅇ" },
+    { answer: "축구", hint: "운동", cho: "ㅊㄱ" },
+    { answer: "커피", hint: "음료", cho: "ㅋㅍ" }
+];
+
+// 방별로 퀴즈 상태 저장
+var quizState = {};
+
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
+    // 퀴즈 시작 명령어
+    if (msg == "초성퀴즈 시작") {
+        quizState[room] = {
+            idx: 0,
+            score: 0
+        };
+        var firstQuiz = quizList[0];
+        replier.reply(
+            "초성퀴즈를 시작합니다!\n\n" +
+            "초성: " + firstQuiz.cho + "\n힌트: " + firstQuiz.hint + "\n정답을 입력하세요!"
+        );
+        return;
+    }
+
+    // 퀴즈 진행 중인지 확인
+    if (quizState[room] != undefined) {
+        var state = quizState[room];
+        var quiz = quizList[state.idx];
+
+        // 정답 체크
+        if (msg == quiz.answer) {
+            state.score++;
+            state.idx++;
+            if (state.idx < quizList.length) {
+                var nextQuiz = quizList[state.idx];
+                replier.reply(
+                    "정답입니다! (" + state.score + "점)\n\n" +
+                    "다음 문제\n초성: " + nextQuiz.cho + "\n힌트: " + nextQuiz.hint + "\n정답을 입력하세요!"
+                );
+            } else {
+                replier.reply(
+                    "정답입니다! (" + state.score + "점)\n\n" +
+                    "퀴즈 종료!\n총 점수: " + state.score + "점"
+                );
+                delete quizState[room]; // 퀴즈 상태 초기화
+            }
+            return;
+        } else if (msg == "포기") {
+            replier.reply("퀴즈를 종료합니다. 다음에 또 도전해 주세요!");
+            delete quizState[room];
+            return;
+        } else {
+            // 오답 처리
+            replier.reply(
+                "틀렸습니다. 다시 시도해 보세요!\n\n" +
+                "초성: " + quiz.cho + "\n힌트: " + quiz.hint
+            );
+            return;
+        }
+    }
+
+    // 퀴즈가 아닐 때 안내
+    if (msg == "초성퀴즈") {
+        replier.reply('초성퀴즈를 시작하려면 "초성퀴즈 시작"이라고 입력하세요.');
+    }
+}
