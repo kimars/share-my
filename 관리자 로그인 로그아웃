@@ -1,0 +1,61 @@
+var administrator = [];//관리자 인증 가능한 사람 목록(관리자목록)
+var logged_in = [];//로그인한 관리자 목록
+var keys = {};//사용자별 인증 키를 저장하는 객체
+
+
+Device.acquireWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, '');
+function response(room, msg, sender, isGroupChat, replier, imageDB, packageName, threadId) {
+  const profile = new java.lang.String(imageDB.getProfileHash()).hashCode();
+  const managers = [니 해 시];
+  
+  function isManager(profile) {
+    return managers.includes(profile);
+  }
+  
+  if (msg == "!로그인") {
+    if (isManager(profile)) {
+      var newKey = Math.floor(Math.random() * 9000) + 1000;
+      keys[sender] = {
+        key: newKey.toString(),
+        timestamp: Date.now()
+      };
+      replier.reply(sender + "님의 비밀번호를 입력해주세요.\n\n" + sender + "님의 비밀번호: " + newKey);
+    } else {
+      replier.reply("관리자만 로그인할 수 있습니다.\nYou are not MBO");
+      Api.showToast(room + "에서\n" + sender+'님이 관리자권한에 접근시도를 하였습니다.');
+  
+    }
+  } else if (msg == "!로그아웃") {
+    if (isManager(profile)) {
+      var index = logged_in.indexOf(profile);
+      
+      if (index !== -1) {
+        logged_in.splice(index, 1);
+        replier.reply(sender + "님이 관리자 계정에서 로그아웃하셨습니다.");
+      } else {
+        replier.reply(sender + "님은 관리자 계정에 로그인되어 있지 않습니다.");
+      }
+    } else {
+      replier.reply("관리자만 로그아웃할 수 있습니다.\nYou are not MBO");
+      Api.showToast(room + "에서\n" + sender+'님이 관리자권한에 접근시도를 하였습니다.');
+  
+    }
+  } else if (keys[sender] && msg == keys[sender].key) {
+    // 키 유효시간 체크 (30초)
+    if (Date.now() - keys[sender].timestamp > 30000) {
+      delete keys[sender];
+      replier.reply("인증 시간이 만료되었습니다. 다시 로그인해주세요.");
+      return;
+    }
+    
+    if (logged_in.indexOf(profile) === -1) {
+      logged_in.push(profile);
+      delete keys[sender];
+      replier.reply(sender + "님이 관리자로 로그인 하셨습니다.");
+    } else {
+      replier.reply(sender + "님은 이미 로그인되어 있습니다.");
+    }
+  } else if (msg == "!관리자") {
+    replier.reply("현재 로그인중인 관리자목록입니다.\n" + logged_in);
+  }
+}
