@@ -1,12 +1,16 @@
-const TARGET_ROOM = ""; // 메시지를 보낼 카톡방 이름
+// 메시지를 보낼 카톡방 이름 배열
+const TARGET_ROOMS = ["방이름1", "방이름2", "방이름3"]; // 원하는 방 이름 추가
 const MESSAGE = "자동으로 보내는 메시지입니다."; // 보낼 메시지 내용
-const INTERVAL = 60* 60 * 1000; // 메시지 전송 간격 (밀리초 단위, 여기서는 1시간)
+const INTERVAL = 60 * 60 * 1000; // 메시지 전송 간격(1시간)
 
+// 메신저봇R의 메시지 이벤트 핸들러 (여기서는 아무 동작도 하지 않음)
 function response(room, msg, sender, isGroupChat, replier, imageDB, packageName) {
     // 아무 동작도 하지 않음
 }
 
-// 주기적으로 메시지 전송
+// 주기적으로 여러 방에 메시지 전송
 setInterval(function() {
-    Api.replyRoom(TARGET_ROOM, MESSAGE);
+    for (var i = 0; i < TARGET_ROOMS.length; i++) {
+        Api.replyRoom(TARGET_ROOMS[i], MESSAGE);
+    }
 }, INTERVAL);
